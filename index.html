@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Discord Lite Client">
+    <meta name="author" content="zerole">
+    <title>Direct Discord Client</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { darkMode: 'class' }
+    </script>
+    <style>
+        :root {
+            --bg-primary: #f5f5f5; --bg-secondary: #ffffff; --bg-tertiary: #e0e0e0; --bg-quaternary: #ebebeb;
+            --text-primary: #111111; --text-secondary: #555555; --text-link: #007bff;
+            --border-color: #cccccc; --button-bg: #333; --button-text: #fff;
+            --hover-bg: #f0f0f0; --active-bg: #e0e0e0;
+        }
+        html.dark {
+            --bg-primary: #36393f; --bg-secondary: #2f3136; --bg-tertiary: #202225; --bg-quaternary: #292b2f;
+            --text-primary: #e0e0e0; --text-secondary: #b9bbbe; --text-link: #58a6ff;
+            --border-color: #40444b; --button-bg: #5865f2; --button-text: #ffffff;
+            --hover-bg: #3a3c41; --active-bg: #40444b;
+        }
+        body { background-color: var(--bg-tertiary); color: var(--text-primary); }
+        .server-icon { width: 50px; height: 50px; border-radius: 50%; transition: border-radius 0.2s ease; }
+        .server-icon:hover, .server-icon.active { border-radius: 15px; }
+        .channel-item:hover { background-color: var(--hover-bg); }
+        .channel-item.active { background-color: var(--active-bg); font-weight: bold; }
+        .input-field { background-color: var(--bg-quaternary); border: 1px solid var(--border-color); color: var(--text-primary); }
+        .btn-blue { background-color: #5865f2; color: white; }
+        .message-content img { max-width: 400px; max-height: 300px; border-radius: 8px; margin-top: 5px; }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg-secondary); }
+        ::-webkit-scrollbar-thumb { background: var(--bg-tertiary); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #555; }
+    </style>
+</head>
+<body class="font-sans h-screen flex flex-col">
+
+    <!-- 認証セクション -->
+    <div id="auth-section" class="w-full max-w-md mx-auto my-auto p-6 rounded-lg shadow-xl" style="background-color: var(--bg-secondary);">
+        <h1 class="text-2xl font-bold text-center mb-4">Direct Discord Client</h1>
+        <p class="text-center text-sm mb-4" style="color:var(--text-secondary)">
+            ⚠️ ユーザートークンの使用はアカウント停止のリスクがあります。自己責任でご利用ください。
+        </p>
+        <div class="space-y-4">
+            <input type="password" id="user-token" placeholder="Enter Your Discord User Token" class="input-field w-full p-3 rounded-md text-sm">
+            <button onclick="authenticate()" class="btn-blue w-full px-4 py-3 rounded-md font-bold hover:opacity-90">Login</button>
+        </div>
+    </div>
+
+    <!-- メインアプリ -->
+    <div id="main-app" class="hidden flex-1 flex min-h-0">
+        <!-- サーバーリスト -->
+        <div class="w-20 p-2 flex flex-col items-center gap-2 overflow-y-auto" style="background-color: var(--bg-tertiary);">
+            <div id="guild-list" class="flex flex-col items-center gap-2"></div>
+        </div>
+
+        <div class="flex-1 flex min-h-0" style="background-color: var(--bg-secondary);">
+            <!-- チャンネルリスト -->
+            <div id="channel-panel" class="hidden w-60 p-2 flex-col border-r" style="border-color: var(--border-color);">
+                <h2 id="guild-name" class="font-bold text-lg p-2 mb-2 truncate"></h2>
+                <div id="channel-list" class="flex-1 overflow-y-auto space-y-1"></div>
+            </div>
+
+            <!-- チャットセクション -->
+            <div id="chat-section" class="hidden flex-1 flex flex-col min-h-0">
+                <div class="p-3 border-b flex items-center justify-between" style="border-color: var(--border-color);">
+                    <div id="current-ch-name" class="font-bold text-lg" style="color: var(--text-secondary);"></div>
+                    <div class="flex items-center gap-2">
+                        <label class="flex items-center gap-1 text-xs" style="color:var(--text-secondary)">
+                            <input type="checkbox" id="auto-refresh" checked> Auto Refresh
+                        </label>
+                        <button onclick="fetchMessages()" class="font-bold px-3 py-1 rounded-md text-xs" style="background-color:var(--bg-quaternary)">Reload</button>
+                    </div>
+                </div>
+                <div id="message-container" class="flex-1 overflow-y-auto p-4 space-y-4">
+                    <div class="text-center text-sm mt-10" style="color:var(--text-secondary)">Select a channel to view messages.</div>
+                </div>
+                <div class="p-4 border-t" style="border-color: var(--border-color);">
+                    <input type="text" id="message-input" placeholder="Message..." class="input-field w-full p-3 rounded-md">
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <button onclick="toggleTheme()" class="fixed bottom-4 right-4 w-12 h-12 rounded-full z-50 border transition-transform duration-200 transform hover:scale-110 flex items-center justify-center" style="background-color:var(--bg-secondary); border-color:var(--border-color)">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 hidden dark:block" style="color: var(--text-primary)"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 dark:hidden text-gray-600"><path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25c0 5.385 4.365 9.75 9.75 9.75 2.572 0 4.92-.99 6.752-2.625Z" /></svg>
+    </button>
+
+    <script>
+        const API_BASE_URL = 'https://discord.com/api/v9';
+        let userToken = '', currentGuildId = '', currentChannelId = '', refreshIntervalId = null;
+        let guildsCache = [];
+
+        function toggleTheme() {
+            const isDark = document.documentElement.classList.toggle('dark');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        }
+        (function() {
+            if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+            }
+        })();
+
+        async function apiRequest(path, method = 'GET', bodyData = null) {
+            const options = {
+                method: method,
+                headers: {
+                    'Authorization': userToken,
+                    'Content-Type': 'application/json'
+                }
+            };
+            if (bodyData && (method === 'POST' || method === 'PATCH')) {
+                options.body = JSON.stringify(bodyData);
+            }
+
+            try {
+                const response = await fetch(API_BASE_URL + path, options);
+                if (!response.ok) {
+                    console.error(`Error ${response.status}:`, await response.json());
+                    return null;
+                }
+                return response.status === 204 ? {} : await response.json();
+            } catch (e) {
+                console.error('API Request failed:', e);
+                return null;
+            }
+        }
+
+        async function authenticate() {
+            const token = document.getElementById('user-token').value;
+            if (!token) return alert('User Tokenを入力してください');
+            userToken = token;
+            const user = await apiRequest('/users/@me');
+            if (user && user.id) {
+                document.getElementById('auth-section').classList.add('hidden');
+                document.getElementById('main-app').classList.remove('hidden');
+                loadGuilds();
+            } else {
+                alert('認証失敗: Tokenが違うか、APIエラーです。');
+            }
+        }
+
+        async function loadGuilds() {
+            const guilds = await apiRequest('/users/@me/guilds');
+            const container = document.getElementById('guild-list');
+            container.innerHTML = '';
+            if (guilds && Array.isArray(guilds)) {
+                guildsCache = guilds;
+                guilds.forEach(g => {
+                    const guildElement = document.createElement('div');
+                    guildElement.className = 'cursor-pointer';
+                    const img = document.createElement('img');
+                    img.id = `guild-${g.id}`;
+                    img.className = 'server-icon bg-gray-700 object-cover';
+                    img.src = g.icon ? `https://cdn.discordapp.com/icons/${g.id}/${g.icon}.webp?size=128` : 'https://cdn.discordapp.com/embed/avatars/0.png';
+                    img.alt = g.name;
+                    img.title = g.name;
+                    img.onclick = () => loadChannels(g.id);
+                    guildElement.appendChild(img);
+                    container.appendChild(guildElement);
+                });
+            }
+        }
+
+        async function loadChannels(guildId) {
+            stopAutoRefresh();
+            document.querySelectorAll('.server-icon').forEach(el => el.classList.remove('active'));
+            document.getElementById(`guild-${guildId}`).classList.add('active');
+
+            currentGuildId = guildId;
+            const selectedGuild = guildsCache.find(g => g.id === guildId);
+            document.getElementById('guild-name').innerText = selectedGuild?.name || 'Channels';
+            
+            const chatSection = document.getElementById('chat-section');
+            chatSection.classList.add('hidden');
+            document.getElementById('channel-panel').classList.remove('hidden');
+
+            const channels = await apiRequest(`/guilds/${currentGuildId}/channels`);
+            const container = document.getElementById('channel-list');
+            container.innerHTML = '';
+            if (channels && Array.isArray(channels)) {
+                const textChannels = channels.filter(c => c.type === 0).sort((a, b) => a.position - b.position);
+                textChannels.forEach(c => {
+                    const channelElement = document.createElement('div');
+                    channelElement.id = `channel-${c.id}`;
+                    channelElement.className = 'channel-item p-2 rounded-md cursor-pointer text-sm';
+                    channelElement.innerText = `# ${c.name}`;
+                    channelElement.onclick = () => selectChannel(c.id, c.name);
+                    container.appendChild(channelElement);
+                });
+            }
+        }
+        
+        function selectChannel(channelId, channelName) {
+            currentChannelId = channelId;
+            
+            document.querySelectorAll('.channel-item').forEach(el => el.classList.remove('active'));
+            document.getElementById(`channel-${channelId}`).classList.add('active');
+
+            const chatSection = document.getElementById('chat-section');
+            chatSection.classList.remove('hidden');
+            document.getElementById('current-ch-name').innerText = `# ${channelName}`;
+            
+            document.getElementById('message-container').innerHTML = `<div class="text-center text-sm mt-10" style="color:var(--text-secondary)">Loading messages for #${channelName}...</div>`;
+
+            fetchMessages();
+            startAutoRefresh();
+        }
+
+        async function fetchMessages() {
+            if (!currentChannelId) return;
+            const messages = await apiRequest(`/channels/${currentChannelId}/messages?limit=50`);
+            const container = document.getElementById('message-container');
+            if (messages && Array.isArray(messages)) {
+                container.innerHTML = '';
+                messages.slice().reverse().forEach(msg => {
+                    const div = document.createElement('div');
+                    const displayName = msg.author.global_name || msg.author.username;
+                    const avatarUrl = msg.author.avatar 
+                        ? `https://cdn.discordapp.com/avatars/${msg.author.id}/${msg.author.avatar}.webp?size=64` 
+                        : `https://cdn.discordapp.com/embed/avatars/${msg.author.discriminator % 5}.png`;
+                    
+                    let contentHTML = msg.content
+                        .replace(/</g, "&lt;").replace(/>/g, "&gt;")
+                        .replace(/(https?:\/\/[^\s]+)/g, `<a href="$1" target="_blank" class="hover:underline" style="color:var(--text-link);">${'$1'}</a>`);
+
+                    if (msg.attachments && msg.attachments.length > 0) {
+                        msg.attachments.forEach(att => {
+                            if (att.content_type?.startsWith('image/')) {
+                                contentHTML += `<br><a href="${att.url}" target="_blank"><img src="${att.url}" alt="Attachment"></a>`;
+                            } else {
+                                contentHTML += `<br><div class="mt-2 p-2 rounded-md" style="background-color: var(--bg-tertiary);">📎 <a href="${att.url}" target="_blank" class="hover:underline" style="color:var(--text-link);">${att.filename}</a></div>`;
+                            }
+                        });
+                    }
+
+                    div.innerHTML = `
+                        <div class="flex gap-4">
+                            <img src="${avatarUrl}" class="w-10 h-10 rounded-full flex-shrink-0">
+                            <div>
+                                <div>
+                                    <span class="font-bold">${displayName}</span>
+                                    <span class="text-xs ml-2" style="color:var(--text-secondary)">${new Date(msg.timestamp).toLocaleString()}</span>
+                                </div>
+                                <div class="message-content" style="word-wrap:break-word;">${contentHTML}</div>
+                            </div>
+                        </div>`;
+                    container.appendChild(div);
+                });
+                container.scrollTop = container.scrollHeight;
+            }
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('message-input');
+            const content = input.value.trim();
+            if (!content || !currentChannelId) return;
+            input.disabled = true;
+
+            await apiRequest(`/channels/${currentChannelId}/messages`, 'POST', { content: content });
+            
+            input.value = '';
+            input.disabled = false;
+            input.focus();
+            fetchMessages();
+        }
+        
+        function stopAutoRefresh() {
+            if (refreshIntervalId) {
+                clearInterval(refreshIntervalId);
+                refreshIntervalId = null;
+            }
+        }
+        function startAutoRefresh() {
+            stopAutoRefresh();
+            const checkbox = document.getElementById('auto-refresh');
+            if (checkbox.checked) {
+                const interval = 20 * 1000; // 20秒
+                refreshIntervalId = setInterval(() => {
+                    if (document.getElementById('auto-refresh').checked) fetchMessages();
+                }, interval);
+            }
+        }
+
+        document.getElementById('auto-refresh').addEventListener('change', startAutoRefresh);
+        document.getElementById('message-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+</html>
