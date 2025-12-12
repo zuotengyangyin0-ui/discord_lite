@@ -86,6 +86,7 @@
 
                     if (response.ok) {
                         if (data.token) {
+                            toggleSpinner(false);
                             loginWithToken(data.token);
                             return;
                         } else if (data.mfa) {
