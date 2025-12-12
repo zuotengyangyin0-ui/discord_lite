@@ -10,7 +10,7 @@
         :root { --bg-primary: #f5f5f5; --bg-secondary: #ffffff; --bg-tertiary: #e0e0e0; --bg-quaternary: #ebebeb; --text-primary: #111111; --text-secondary: #555555; --text-link: #007bff; --border-color: #cccccc; --button-bg: #5865f2; --button-text: #fff; --hover-bg: #f0f0f0; --active-bg: #e0e0e0; }
         html.dark { --bg-primary: #36393f; --bg-secondary: #2f3136; --bg-tertiary: #202225; --bg-quaternary: #292b2f; --text-primary: #e0e0e0; --text-secondary: #b9bbbe; --text-link: #58a6ff; --border-color: #40444b; --button-bg: #5865f2; --button-text: #ffffff; --hover-bg: #3a3c41; --active-bg: #40444b; }
         body { background-color: var(--bg-tertiary); color: var(--text-primary); }
-        .server-icon { width: 50px; height: 50px; border-radius: 50%; transition: border-radius 0.2s ease; }
+        .server-icon { width: 50px; height: 50px; border-radius: 50%; transition: border-radius 0.2s ease; flex-shrink: 0; }
         .server-icon:hover, .server-icon.active { border-radius: 15px; }
         .channel-item:hover { background-color: var(--hover-bg); }
         .channel-item.active { background-color: var(--active-bg); font-weight: bold; }
@@ -22,405 +22,197 @@
     </style>
 </head>
 <body class="font-sans h-screen flex flex-col">
+    <!-- Auth Section -->
     <div id="auth-section" class="w-full max-w-md mx-auto my-auto p-8 rounded-lg shadow-xl" style="background-color: var(--bg-secondary);">
         <h1 class="text-2xl font-bold text-center mb-2">Welcome Back!</h1>
-        <p class="text-center text-sm mb-6" style="color:var(--text-secondary)">Enter your Discord Token</p>
-        <div id="login-error" class="text-red-500 text-xs mb-3"></div>
+        <div id="login-error" class="text-red-500 text-xs mb-3 text-center"></div>
         <form id="login-form" class="space-y-4">
-            <div>
-                <label for="token-input" class="text-xs font-bold uppercase" style="color:var(--text-secondary)">Token</label>
-                <input type="password" id="token-input" class="input-field w-full p-2.5 rounded-md text-sm mt-1" placeholder="MTEx..." required>
-            </div>
-            <button type="submit" id="login-button" class="bg-blue-600 hover:bg-blue-700 w-full px-4 py-3 rounded-md font-bold text-white flex items-center justify-center">
+            <input type="password" id="token-input" class="input-field w-full p-2.5 rounded-md" placeholder="Discord Token">
+            <button type="submit" id="login-button" class="bg-blue-600 hover:bg-blue-700 w-full py-3 rounded-md font-bold text-white flex justify-center items-center">
                 <span id="login-button-text">Login</span>
                 <div id="login-spinner" class="loader hidden"></div>
             </button>
         </form>
     </div>
 
+    <!-- Main App -->
     <div id="main-app" class="hidden flex-1 flex min-h-0">
-        <!-- Server List Column -->
-        <div class="w-20 p-2 flex flex-col items-center gap-2" style="background-color: var(--bg-tertiary);">
-            <div id="dm-icon" title="Direct Messages" class="server-icon bg-gray-600 flex items-center justify-center cursor-pointer text-white">
-                <span class="font-bold text-xl">DM</span>
+        <!-- Sidebar: Servers -->
+        <div class="w-20 p-2 flex flex-col items-center gap-2 overflow-y-auto" style="background-color: var(--bg-tertiary);">
+            <div id="dm-icon" title="DM" class="server-icon bg-indigo-600 flex items-center justify-center cursor-pointer text-white font-black text-xl mb-1">
+                DM
             </div>
-            <div id="guild-list" class="flex flex-col items-center gap-2 flex-grow overflow-y-auto"></div>
-            <button onclick="logout()" title="Logout" class="mt-auto server-icon bg-gray-600 hover:bg-red-500 flex items-center justify-center text-white flex-shrink-0">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+            <div id="guild-list" class="flex flex-col items-center gap-2 w-full"></div>
+            <button onclick="logout()" class="mt-auto server-icon bg-gray-500 hover:bg-red-600 flex items-center justify-center text-white" title="Logout">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
             </button>
         </div>
 
         <div class="flex-1 flex min-h-0" style="background-color: var(--bg-secondary);">
-            <div id="channel-panel" class="hidden w-60 p-2 flex flex-col border-r min-h-0" style="border-color: var(--border-color);">
-                <div class="p-2 mb-2 flex-shrink-0">
-                    <h2 id="guild-name" class="font-bold text-lg truncate"></h2>
-                </div>
-                <div id="channel-list" class="flex-1 overflow-y-auto space-y-1"></div>
+            <!-- Channel List -->
+            <div id="channel-panel" class="hidden w-64 flex flex-col border-r" style="border-color: var(--border-color);">
+                <div class="p-4 border-b font-bold truncate" id="guild-name" style="border-color: var(--border-color);"></div>
+                <div id="channel-list" class="flex-1 overflow-y-auto p-2"></div>
             </div>
+
+            <!-- Chat Area -->
             <div id="chat-section" class="hidden flex-1 flex flex-col min-h-0">
                 <div class="p-3 border-b flex items-center justify-between flex-shrink-0" style="border-color: var(--border-color);">
-                     <div id="current-ch-name" class="flex items-center gap-2 truncate"></div>
-                    <div id="ws-status" class="w-3 h-3 rounded-full bg-gray-500" title="WebSocket Disconnected"></div>
+                    <div id="current-ch-name" class="font-bold flex items-center"></div>
+                    <div id="ws-status" class="w-3 h-3 rounded-full bg-gray-500"></div>
                 </div>
-                <div id="message-container" class="flex-1 overflow-y-auto p-4 space-y-4"></div>
-                <div class="p-4 border-t" style="border-color: var(--border-color);">
-                    <div class="flex items-center gap-2">
-                         <input type="text" id="message-input" placeholder="Message..." class="input-field w-full p-3 rounded-md" disabled>
-                         <button id="send-button" class="p-3 rounded-md hover:opacity-80" style="background-color:var(--button-bg)" disabled>
-                            <svg class="w-6 h-6" fill="white" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
-                        </button>
-                    </div>
+                <div id="message-container" class="flex-1 overflow-y-auto p-4 space-y-4 flex flex-col"></div>
+                <div class="p-4 border-t flex gap-2" style="border-color: var(--border-color);">
+                    <input type="text" id="message-input" placeholder="Message..." class="input-field w-full p-3 rounded-md">
+                    <button id="send-button" class="px-5 py-3 rounded-md font-bold text-white bg-indigo-600 hover:bg-indigo-700">Send</button>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        const API_BASE_URL = 'https://discord.com/api/v10';
-        let GATEWAY_URL = 'wss://gateway.discord.gg/?v=10&encoding=json';
-        let userToken = null;
-        let ws = null;
-        let currentUserId = null;
-        
-        let sessionId, heartbeatInterval, lastSequence;
-        let heartbeatAckReceived = true;
+        const API_BASE = 'https://discord.com/api/v10';
+        let userToken = null, ws = null, currentChannelId = null, lastSequence = null, heartbeatInterval = null;
 
-        window.addEventListener('DOMContentLoaded', () => { 
-            initTheme(); 
-            document.getElementById('login-form').addEventListener('submit', handleLogin); 
-            document.getElementById('dm-icon').addEventListener('click', loadDms);
-            document.getElementById('send-button').addEventListener('click', sendMessage);
+        async function apiRequest(path, method = 'GET', body = null) {
+            const options = { method, headers: { 'Authorization': userToken, 'Content-Type': 'application/json' } };
+            if (body) options.body = JSON.stringify(body);
+            const res = await fetch(`${API_BASE}${path}`, options);
+            if (res.status === 401) return logout();
+            return res.status === 204 ? {} : res.json();
+        }
 
-            let storedToken = localStorage.getItem('token'); 
-            if (storedToken) {
-                storedToken = storedToken.replace(/"/g, '');
-                loginWithToken(storedToken); 
+        async function loginWithToken(token) {
+            userToken = token.trim().replace(/^"|"$/g, '');
+            const user = await apiRequest('/users/@me');
+            if (user && user.id) {
+                localStorage.setItem('token', userToken);
+                document.getElementById('auth-section').classList.add('hidden');
+                document.getElementById('main-app').classList.remove('hidden');
+                loadGuilds();
+                connectWS();
+            } else {
+                document.getElementById('login-error').innerText = "Invalid Token";
             }
-        });
-
-        function initTheme() { 
-            if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.classList.add('dark');
-        }
-        
-        async function handleLogin(e) {
-            e.preventDefault();
-            const tokenInput = document.getElementById('token-input').value.trim();
-            if (!tokenInput) return;
-            loginWithToken(tokenInput);
         }
 
-        async function loginWithToken(token) { 
-            const loginButton = document.getElementById('login-button');
-            const buttonText = document.getElementById('login-button-text');
-            const spinner = document.getElementById('login-spinner');
-            const errorDiv = document.getElementById('login-error');
-
-            loginButton.disabled = true;
-            buttonText.classList.add('hidden');
-            spinner.classList.remove('hidden');
-            errorDiv.textContent = '';
-            userToken = token; 
-            
-            const user = await apiRequest('/users/@me'); 
-            if (user && user.id) { 
-                currentUserId = user.id;
-                localStorage.setItem('token', `"${token}"`); 
-                document.getElementById('auth-section').classList.add('hidden'); 
-                document.getElementById('main-app').classList.remove('hidden'); 
-                initializeApp(); 
-            } else { 
-                logout(false);
-                errorDiv.textContent = 'Invalid Token. Please check your token and try again.';
-            }
-            
-            loginButton.disabled = false;
-            buttonText.classList.remove('hidden');
-            spinner.classList.add('hidden');
-        }
-
-        function logout(clear = true) { 
-            if (clear) localStorage.removeItem('token'); 
-            userToken = null; 
-            if (ws) { ws.onclose = null; ws.close(); }
-            clearInterval(heartbeatInterval);
-            document.getElementById('auth-section').classList.remove('hidden'); 
-            document.getElementById('main-app').classList.add('hidden'); 
-            document.getElementById('guild-list').innerHTML = '';
-            document.getElementById('channel-panel').classList.add('hidden');
-            document.getElementById('chat-section').classList.add('hidden');
-        }
-
-        async function initializeApp() { 
-            await loadGuilds(); 
-            connectWebSocket(); 
-        }
-        
-        async function apiRequest(path, method = 'GET', bodyData = null) { 
-            if (!userToken) return null; 
-            try { 
-                const headers = { 'Authorization': userToken, 'Content-Type': 'application/json' }; 
-                const options = { method, headers }; 
-                if (bodyData) options.body = JSON.stringify(bodyData); 
-                
-                const response = await fetch(API_BASE_URL + path, options); 
-                
-                if (response.status === 401) { logout(); return null; } 
-                if (response.status === 204) return {};
-                if (!response.ok) { console.error(`API Error ${response.status}`); return null; }
-                
-                return await response.json(); 
-            } catch (e) { console.error('API Request failed:', e); return null; } 
-        }
-        
-        let currentGuildId, currentChannelId, guildsCache = [], channelsCache = {}; 
-        
-        async function loadGuilds() { 
+        async function loadGuilds() {
             const guilds = await apiRequest('/users/@me/guilds');
-            if (!guilds) return; 
-            guildsCache = guilds; 
-            
-            const container = document.getElementById('guild-list'); 
-            container.innerHTML = ''; 
-            guilds.forEach(g => { 
-                const img = document.createElement('img'); 
-                img.id = `guild-${g.id}`; 
-                img.className = 'server-icon bg-gray-700 object-cover cursor-pointer'; 
-                img.src = g.icon ? `https://cdn.discordapp.com/icons/${g.id}/${g.icon}.webp?size=128` : 'https://cdn.discordapp.com/embed/avatars/0.png'; 
-                img.title = g.name; 
-                img.onclick = () => loadChannels(g.id); 
-                container.appendChild(img); 
-            }); 
-        }
-        
-        async function loadDms() {
-            currentGuildId = null;
-            document.querySelectorAll('.server-icon').forEach(el => el.classList.remove('active'));
-            document.getElementById('dm-icon').classList.add('active');
-            document.getElementById('guild-name').innerText = "Direct Messages";
-            document.getElementById('channel-panel').classList.remove('hidden');
-            document.getElementById('chat-section').classList.add('hidden');
-
-            const channels = await apiRequest(`/users/@me/channels`);
-            if (!channels) return;
-            channelsCache['dms'] = channels;
-            
-            const container = document.getElementById('channel-list');
-            container.innerHTML = '';
-            channels.filter(c => c.type === 1 || c.type === 3) // DM or Group DM
-                .sort((a,b) => (b.last_message_id || 0) - (a.last_message_id || 0))
-                .forEach(c => {
-                    const el = document.createElement('div');
-                    el.id = `channel-${c.id}`;
-                    el.className = 'channel-item p-2 rounded-md cursor-pointer text-sm truncate';
-                    let name = c.name || (c.recipients.length > 0 ? (c.recipients[0].global_name || c.recipients[0].username) : 'Unnamed');
-                    el.innerText = name;
-                    el.onclick = () => selectChannel(c);
-                    container.appendChild(el);
-                });
-        }
-
-
-        async function loadChannels(guildId) { 
-            currentGuildId = guildId; 
-            document.querySelectorAll('.server-icon').forEach(el => el.classList.remove('active')); 
-            document.getElementById(`guild-${guildId}`)?.classList.add('active'); 
-            const guild = guildsCache.find(g => g.id === guildId); 
-            document.getElementById('guild-name').innerText = guild?.name; 
-            document.getElementById('channel-panel').classList.remove('hidden'); 
-            document.getElementById('chat-section').classList.add('hidden'); 
-            
-            // ★ FIX: Added with_permissions=true to get the user's computed permissions
-            const channels = await apiRequest(`/guilds/${guildId}/channels?with_permissions=true`); 
-            if (!channels) return; 
-            
-            channelsCache[guildId] = channels; 
-            const container = document.getElementById('channel-list'); 
-            container.innerHTML = ''; 
-            
-            const VIEW_CHANNEL_PERMISSION = 1024n; // 1 << 10
-            
-            const categories = channels.filter(c => c.type === 4).sort((a, b) => a.position - b.position);
-            const orphanChannels = channels.filter(c => !c.parent_id && c.type === 0);
-
-            let displayableChannels = [];
-            
-            orphanChannels.forEach(c => displayableChannels.push(c));
-            
-            categories.forEach(category => {
-                const channelsInCategory = channels
-                    .filter(c => c.parent_id === category.id && c.type === 0)
-                    .sort((a, b) => a.position - b.position);
-                if (channelsInCategory.length > 0) {
-                   displayableChannels.push(category, ...channelsInCategory);
-                }
+            const list = document.getElementById('guild-list');
+            list.innerHTML = '';
+            guilds.forEach(g => {
+                const img = document.createElement('img');
+                img.className = 'server-icon bg-gray-700 cursor-pointer object-cover';
+                img.src = g.icon ? `https://cdn.discordapp.com/icons/${g.id}/${g.icon}.png?size=128` : 'https://cdn.discordapp.com/embed/avatars/0.png';
+                img.onclick = () => loadChannels(g);
+                list.appendChild(img);
             });
-
-
-            displayableChannels.forEach(c => { 
-                if (c.type === 4) { // It's a category
-                    const el = document.createElement('div');
-                    el.className = 'px-1 pt-4 pb-1 text-xs font-bold uppercase tracking-wider'
-                    el.style.color = 'var(--text-secondary)';
-                    el.innerText = c.name;
-                    container.appendChild(el);
-                    return;
-                }
-                
-                // It's a channel, check permissions
-                if (!c.permissions || (BigInt(c.permissions) & VIEW_CHANNEL_PERMISSION) === VIEW_CHANNEL_PERMISSION) {
-                    const el = document.createElement('div'); 
-                    el.id = `channel-${c.id}`; 
-                    el.className = 'channel-item p-2 rounded-md cursor-pointer text-sm truncate'; 
-                    el.innerText = `# ${c.name}`; 
-                    el.onclick = () => selectChannel(c); 
-                    container.appendChild(el); 
-                }
-            }); 
         }
 
-        async function selectChannel(channel) { 
-            currentChannelId = channel.id; 
-            document.querySelectorAll('.channel-item').forEach(el => el.classList.remove('active')); 
-            document.getElementById(`channel-${channel.id}`)?.classList.add('active'); 
+        async function loadChannels(guild) {
+            document.getElementById('guild-name').innerText = guild.name;
+            document.getElementById('channel-panel').classList.remove('hidden');
+            const channels = await apiRequest(`/guilds/${guild.id}/channels`);
+            const list = document.getElementById('channel-list');
+            list.innerHTML = '';
+            // とりあえずテキストチャンネルのみ表示。フィルタは甘くして確実に出るように
+            channels.filter(c => c.type === 0 || c.type === 5).sort((a,b)=>a.position - b.position).forEach(c => {
+                const d = document.createElement('div');
+                d.className = 'channel-item p-2 rounded cursor-pointer mb-1 text-sm truncate opacity-80';
+                d.innerText = `# ${c.name}`;
+                d.onclick = () => selectChannel(c);
+                list.appendChild(d);
+            });
+        }
+
+        async function loadDms() {
+            document.getElementById('guild-name').innerText = 'Direct Messages';
+            document.getElementById('channel-panel').classList.remove('hidden');
+            const channels = await apiRequest('/users/@me/channels');
+            const list = document.getElementById('channel-list');
+            list.innerHTML = '';
+            channels.forEach(c => {
+                const name = c.name || (c.recipients?.[0]?.global_name || c.recipients?.[0]?.username || 'DM');
+                const d = document.createElement('div');
+                d.className = 'channel-item p-2 rounded cursor-pointer mb-1 text-sm truncate';
+                d.innerText = name;
+                d.onclick = () => selectChannel(c);
+                list.appendChild(d);
+            });
+        }
+
+        async function selectChannel(ch) {
+            currentChannelId = ch.id;
             document.getElementById('chat-section').classList.remove('hidden');
-            
-            let channelNameHTML;
-            if (channel.guild_id) {
-                 channelNameHTML = `<span class="text-xl" style="color:var(--text-secondary)">#</span><span class="font-bold text-lg">${channel.name}</span>`;
-            } else { 
-                 let name = channel.name || (channel.recipients.length > 0 ? (channel.recipients[0].global_name || channel.recipients[0].username) : 'Unnamed');
-                 channelNameHTML = `<span class="font-bold text-lg">${name}</span>`;
-            }
-            document.getElementById('current-ch-name').innerHTML = channelNameHTML;
-
-            document.getElementById('message-container').innerHTML = ''; 
-            document.getElementById('message-input').disabled = false;
-            document.getElementById('send-button').disabled = false;
-            
-            const messages = await apiRequest(`/channels/${channel.id}/messages?limit=50`); 
-            if (messages) { 
-                messages.slice().reverse().forEach(renderMessage); 
-                scrollToBottom(); 
-            } 
+            document.getElementById('current-ch-name').innerText = ch.name || 'Chat';
+            document.getElementById('message-container').innerHTML = '<div class="text-center text-xs opacity-50">Loading history...</div>';
+            const msgs = await apiRequest(`/channels/${ch.id}/messages?limit=50`);
+            document.getElementById('message-container').innerHTML = '';
+            if(Array.isArray(msgs)) msgs.reverse().forEach(renderMsg);
+            scrollToBottom();
         }
 
-        function renderMessage(msg) { 
-            const container = document.getElementById('message-container'); 
-            const div = document.createElement('div'); 
-            const displayName = msg.author.global_name || msg.author.username; 
-            const avatarUrl = msg.author.avatar ? `https://cdn.discordapp.com/avatars/${msg.author.id}/${msg.author.avatar}.webp?size=64` : `https://cdn.discordapp.com/embed/avatars/${(msg.author.discriminator || 0) % 5}.png`; 
+        function renderMsg(m) {
+            if(!m.author) return;
+            const container = document.getElementById('message-container');
+            const authorName = m.author.global_name || m.author.username;
+            const avatar = m.author.avatar ? `https://cdn.discordapp.com/avatars/${m.author.id}/${m.author.avatar}.png?size=64` : `https://cdn.discordapp.com/embed/avatars/0.png`;
             
-            let contentHTML = msg.content
-                .replace(/</g, "&lt;").replace(/>/g, "&gt;")
-                .replace(/(https?:\/\/[^\s]+)/g, `<a href="$1" target="_blank" class="hover:underline" style="color:var(--text-link);">${'$1'}</a>`); 
-            
-            if (msg.attachments?.length > 0) msg.attachments.forEach(att => { 
-                contentHTML += att.content_type?.startsWith('image/') 
-                    ? `<br><a href="${att.url}" target="_blank"><img src="${att.url}" class="message-content" alt="Attachment"></a>` 
-                    : `<br><div class="mt-2 p-2 rounded-md" style="background-color: var(--bg-quaternary);">📎 <a href="${att.url}" target="_blank" class="hover:underline" style="color:var(--text-link);">${att.filename}</a></div>`; 
-            }); 
-
-            div.innerHTML = `<div class="flex gap-4 py-1"><img src="${avatarUrl}" class="w-10 h-10 rounded-full flex-shrink-0 mt-1"><div><div><span class="font-bold">${displayName}</span><span class="text-xs ml-2" style="color:var(--text-secondary)">${new Date(msg.timestamp).toLocaleString()}</span></div><div class="prose dark:prose-invert" style="word-wrap:break-word;">${contentHTML}</div></div></div>`; 
-            
-            const shouldScroll = container.scrollTop + container.clientHeight >= container.scrollHeight - 50; 
-            container.appendChild(div); 
-            if (shouldScroll) scrollToBottom(); 
+            const div = document.createElement('div');
+            div.className = "flex gap-3 items-start group";
+            div.innerHTML = `
+                <img src="${avatar}" class="w-10 h-10 rounded-full mt-0.5">
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2">
+                        <span class="font-bold text-sm">${authorName}</span>
+                        <span class="text-[10px] opacity-40">${new Date(m.timestamp).toLocaleTimeString()}</span>
+                    </div>
+                    <div class="text-sm break-words">${m.content.replace(/</g,'&lt;')}</div>
+                </div>
+            `;
+            container.appendChild(div);
+            scrollToBottom();
         }
 
-        async function sendMessage() { 
-            const input = document.getElementById('message-input'); 
-            const content = input.value.trim(); 
-            if (!content || !currentChannelId || input.disabled) return; 
-            input.value = ''; 
-            await apiRequest(`/channels/${currentChannelId}/messages`, 'POST', { content: content, nonce: `temp_${Date.now()}` }); 
+        async function sendMessage() {
+            const input = document.getElementById('message-input');
+            const content = input.value.trim();
+            if(!content || !currentChannelId) return;
+            input.value = '';
+            await apiRequest(`/channels/${currentChannelId}/messages`, 'POST', { content });
         }
-        
-        function connectWebSocket(isResuming = false) {
-            if (ws) ws.close();
-            ws = new WebSocket(GATEWAY_URL);
-            ws.onmessage = onWebSocketMessage;
-            ws.onclose = (event) => {
-                console.warn(`WebSocket disconnected: ${event.code}`);
-                updateWsStatus(false);
-                clearInterval(heartbeatInterval);
-                if (event.code !== 4004 && event.code < 4000) {
-                    setTimeout(() => connectWebSocket(true), 5000);
-                } else if (event.code >= 4000) {
-                    logout(event.code === 4004);
+
+        function connectWS() {
+            if(ws) ws.close();
+            ws = new WebSocket('wss://gateway.discord.gg/?v=10&encoding=json');
+            ws.onmessage = (e) => {
+                const data = JSON.parse(e.data);
+                if(data.s) lastSequence = data.s;
+                if(data.op === 10) {
+                    heartbeatInterval = setInterval(() => ws.send(JSON.stringify({op:1, d: lastSequence})), data.d.heartbeat_interval);
+                    ws.send(JSON.stringify({ op: 2, d: { token: userToken, properties: { os: "windows", browser: "chrome", device: "" } } }));
+                }
+                if(data.t === 'READY') document.getElementById('ws-status').classList.replace('bg-gray-500', 'bg-green-500');
+                if(data.t === 'MESSAGE_CREATE' && data.d.channel_id === currentChannelId) {
+                    renderMsg(data.d);
                 }
             };
-            ws.onerror = (error) => console.error('WebSocket Error:', error);
+            ws.onclose = () => {
+                document.getElementById('ws-status').classList.replace('bg-green-500', 'bg-gray-500');
+                setTimeout(connectWS, 5000);
+            };
         }
 
-        function onWebSocketMessage(event) { 
-            const payload = JSON.parse(event.data); 
-            if (payload.s) lastSequence = payload.s; 
-            switch (payload.op) { 
-                case 0: handleDispatch(payload.t, payload.d); break; 
-                case 1: sendHeartbeat(); break;
-                case 7: ws.close(); connectWebSocket(true); break;
-                case 9: setTimeout(() => connectWebSocket(false), 2000); break;
-                case 10: 
-                    startHeartbeat(payload.d.heartbeat_interval); 
-                    if (sessionId) resume(); else identify();
-                    break; 
-                case 11: heartbeatAckReceived = true; break;
-            } 
-        }
-
-        function handleDispatch(type, data) { 
-            if (type === 'READY') { 
-                sessionId = data.session_id; 
-                GATEWAY_URL = data.resume_gateway_url;
-                updateWsStatus(true); 
-            } else if (type === 'RESUMED') {
-                 updateWsStatus(true); 
-            } else if (type === 'MESSAGE_CREATE' && data.channel_id === currentChannelId) { 
-                renderMessage(data); 
-            } 
-        }
-
-        function startHeartbeat(ms) { 
-            if (heartbeatInterval) clearInterval(heartbeatInterval); 
-            heartbeatAckReceived = true;
-            heartbeatInterval = setInterval(() => {
-                if (!heartbeatAckReceived) {
-                    if (ws) ws.close();
-                    return; // onclose will handle reconnection
-                }
-                sendHeartbeat();
-            }, ms);
-        }
-
-        function sendHeartbeat() { 
-            if (ws?.readyState === WebSocket.OPEN) {
-                heartbeatAckReceived = false;
-                ws.send(JSON.stringify({ op: 1, d: lastSequence })); 
-            }
-        }
+        function scrollToBottom() { const c = document.getElementById('message-container'); c.scrollTop = c.scrollHeight; }
+        function logout() { localStorage.removeItem('token'); location.reload(); }
+        document.getElementById('login-form').onsubmit = (e) => { e.preventDefault(); loginWithToken(document.getElementById('token-input').value); };
+        document.getElementById('dm-icon').onclick = loadDms;
+        document.getElementById('send-button').onclick = sendMessage;
+        document.getElementById('message-input').onkeypress = (e) => { if(e.key === 'Enter') sendMessage(); };
         
-        function resume() {
-            ws.send(JSON.stringify({ op: 6, d: { token: userToken, session_id: sessionId, seq: lastSequence }}));
-        }
-
-        function identify() { 
-            ws.send(JSON.stringify({ op: 2, d: { token: userToken, properties: { os: "Windows", browser: "Chrome", device: "" }, compress: false }})); 
-        }
-
-        function updateWsStatus(isConnected) { 
-            const statusIndicator = document.getElementById('ws-status'); 
-            statusIndicator.classList.toggle('bg-green-500', isConnected); 
-            statusIndicator.classList.toggle('bg-gray-500', !isConnected); 
-        }
-
-        document.getElementById('message-input').addEventListener('keypress', e => { 
-            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } 
-        });
-
-        function scrollToBottom() { 
-            const el = document.getElementById('message-container'); 
-            el.scrollTop = el.scrollHeight; 
-        }
+        const saved = localStorage.getItem('token');
+        if(saved) loginWithToken(saved);
+        if (window.matchMedia('(prefers-color-scheme: dark)').matches) document.documentElement.classList.add('dark');
     </script>
 </body>
 </html>
