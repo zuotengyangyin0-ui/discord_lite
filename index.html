@@ -5,7 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Discord Lite</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script> tailwind.config = { darkMode: 'class' } </script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class'
+        }
+    </script>
     <style>
         :root { --bg-primary: #f5f5f5; --bg-secondary: #ffffff; --bg-tertiary: #e0e0e0; --bg-quaternary: #ebebeb; --text-primary: #111111; --text-secondary: #555555; --text-link: #007bff; --border-color: #cccccc; --button-bg: #5865f2; --button-text: #fff; --hover-bg: #f0f0f0; --active-bg: #e0e0e0; }
         html.dark { --bg-primary: #36393f; --bg-secondary: #2f3136; --bg-tertiary: #202225; --bg-quaternary: #292b2f; --text-primary: #e0e0e0; --text-secondary: #b9bbbe; --text-link: #58a6ff; --border-color: #40444b; --button-bg: #5865f2; --button-text: #ffffff; --hover-bg: #3a3c41; --active-bg: #40444b; }
@@ -19,13 +23,13 @@
         .loader { border: 4px solid var(--bg-tertiary); border-top: 4px solid var(--button-bg); border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         ::-webkit-scrollbar { width: 8px; } ::-webkit-scrollbar-track { background: var(--bg-secondary); } ::-webkit-scrollbar-thumb { background: var(--bg-tertiary); border-radius: 4px; } ::-webkit-scrollbar-thumb:hover { background: #555; }
-        /* For Message Grouping and Reply Button */
-        .message-group .reply-button { visibility: hidden; }
-        .message-group:hover .reply-button { visibility: visible; }
+        .message-toolbar { visibility: hidden; opacity: 0; transition: opacity 0.1s ease-in-out; }
+        .message-group:hover .message-toolbar { visibility: visible; opacity: 1; }
+        .reaction-picker { display: none; }
+        .reaction-btn:hover .reaction-picker { display: flex; }
     </style>
 </head>
 <body class="font-sans h-screen flex flex-col">
-    <!-- Auth Section -->
     <div id="auth-section" class="w-full max-w-md mx-auto my-auto p-8 rounded-lg shadow-xl" style="background-color: var(--bg-secondary);">
         <h1 class="text-2xl font-bold text-center mb-2">Welcome Back!</h1>
         <div id="login-error" class="text-red-500 text-xs mb-3 text-center"></div>
@@ -38,22 +42,17 @@
         </form>
     </div>
 
-    <!-- Main App -->
-    <div id="main-app" class="hidden flex-1 flex min-h-0">
-        <!-- Sidebar: Servers -->
-        <div class="w-20 p-2 flex flex-col items-center gap-2 overflow-y-auto" style="background-color: var(--bg-tertiary);">
-            <div id="dm-icon" title="DM" class="server-icon bg-indigo-600 flex items-center justify-center cursor-pointer text-white font-black text-xl mb-1">
-                DM
-            </div>
-            <div id="guild-list" class="flex flex-col items-center gap-2 w-full"></div>
-            <button onclick="logout()" class="mt-auto server-icon bg-gray-500 hover:bg-red-600 flex items-center justify-center text-white" title="Logout">
+    <div id="main-app" class="hidden flex-1 flex flex-col md:flex-row min-h-0">
+        <div class="w-full md:w-20 p-2 flex md:flex-col items-center gap-2 overflow-x-auto md:overflow-y-auto" style="background-color: var(--bg-tertiary);">
+            <div id="dm-icon" title="DM" class="server-icon bg-indigo-600 flex items-center justify-center cursor-pointer text-white font-black text-xl mb-1">DM</div>
+            <div id="guild-list" class="flex md:flex-col items-center gap-2 w-full"></div>
+            <button onclick="logout()" class="md:mt-auto ml-auto md:ml-0 server-icon bg-gray-500 hover:bg-red-600 flex items-center justify-center text-white" title="Logout">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
             </button>
         </div>
 
-        <div class="flex-1 flex min-h-0" style="background-color: var(--bg-secondary);">
-            <!-- Channel List -->
-            <div id="channel-panel" class="hidden w-64 flex flex-col border-r" style="border-color: var(--border-color);">
+        <div class="flex-1 flex min-h-0">
+            <div id="channel-panel" class="w-64 flex-col border-r hidden md:flex" style="border-color: var(--border-color);">
                 <div class="p-4 border-b font-bold truncate" id="guild-name" style="border-color: var(--border-color);"></div>
                 <div id="channel-list" class="flex-1 overflow-y-auto p-2"></div>
             </div>
@@ -61,18 +60,21 @@
             <!-- Chat Area -->
             <div id="chat-section" class="hidden flex-1 flex flex-col min-h-0">
                 <div class="p-3 border-b flex items-center justify-between flex-shrink-0" style="border-color: var(--border-color);">
-                    <div id="current-ch-name" class="font-bold flex items-center"></div>
+                    <div id="current-ch-name" class="font-bold flex items-center truncate"></div>
                     <div id="ws-status" class="w-3 h-3 rounded-full bg-gray-500"></div>
                 </div>
                 <div id="message-container" class="flex-1 overflow-y-auto p-4 space-y-1 flex flex-col"></div>
-                <!-- Reply Bar -->
-                 <div id="reply-bar" class="hidden p-2 text-sm border-t" style="border-color: var(--border-color); background-color: var(--bg-quaternary);">
-                    Replying to <span id="reply-username" class="font-semibold"></span>
-                    <button id="cancel-reply-btn" class="ml-2 text-xs font-bold">[x]</button>
+                 <div id="reply-bar" class="hidden p-2 text-sm border-t items-center flex justify-between" style="border-color: var(--border-color); background-color: var(--bg-quaternary);">
+                    <div>Replying to <span id="reply-username" class="font-semibold"></span></div>
+                    <button id="cancel-reply-btn" class="p-1 rounded-full hover:bg-gray-500/30">
+                         <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
+                    </button>
                 </div>
                 <div class="p-4 border-t flex gap-2" style="border-color: var(--border-color);">
                     <input type="text" id="message-input" placeholder="Message..." class="input-field w-full p-3 rounded-md">
-                    <button id="send-button" class="px-5 py-3 rounded-md font-bold text-white bg-indigo-600 hover:bg-indigo-700">Send</button>
+                    <button id="send-button" class="p-3 rounded-md font-bold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg>
+                    </button>
                 </div>
             </div>
         </div>
@@ -80,10 +82,11 @@
 
     <script>
         const API_BASE = 'https://discord.com/api/v10';
-        let userToken = null, ws = null, currentChannelId = null, lastSequence = null, heartbeatInterval = null;
+        let userToken, ws, currentChannelId, lastSequence, heartbeatInterval;
         let lastMessageInfo = { authorId: null, timestamp: null };
         let replyingTo = null;
-
+        let oldestMessageId = null;
+        let isLoadingMore = false;
 
         async function apiRequest(path, method = 'GET', body = null) {
             const options = { method, headers: { 'Authorization': userToken, 'Content-Type': 'application/json' } };
@@ -95,7 +98,20 @@
 
         async function loginWithToken(token) {
             userToken = token.trim().replace(/^"|"$/g, '');
+            const loginButton = document.getElementById('login-button');
+            const buttonText = document.getElementById('login-button-text');
+            const spinner = document.getElementById('login-spinner');
+
+            buttonText.classList.add('hidden');
+            spinner.classList.remove('hidden');
+            loginButton.disabled = true;
+
             const user = await apiRequest('/users/@me');
+            
+            buttonText.classList.remove('hidden');
+            spinner.classList.add('hidden');
+            loginButton.disabled = false;
+            
             if (user && user.id) {
                 localStorage.setItem('token', userToken);
                 document.getElementById('auth-section').classList.add('hidden');
@@ -103,7 +119,8 @@
                 loadGuilds();
                 connectWS();
             } else {
-                document.getElementById('login-error').innerText = "Invalid Token";
+                document.getElementById('login-error').innerText = "Invalid Token. Please try again.";
+                localStorage.removeItem('token');
             }
         }
 
@@ -115,12 +132,17 @@
                 const img = document.createElement('img');
                 img.className = 'server-icon bg-gray-700 cursor-pointer object-cover';
                 img.src = g.icon ? `https://cdn.discordapp.com/icons/${g.id}/${g.icon}.png?size=128` : 'https://cdn.discordapp.com/embed/avatars/0.png';
+                img.alt = g.name;
+                img.title = g.name;
                 img.onclick = () => loadChannels(g);
                 list.appendChild(img);
             });
         }
         
         async function loadChannels(guild) {
+            document.querySelectorAll('.server-icon.active').forEach(el => el.classList.remove('active'));
+            event.target.classList.add('active');
+
             document.getElementById('guild-name').innerText = guild.name;
             document.getElementById('channel-panel').classList.remove('hidden');
             document.getElementById('chat-section').classList.add('hidden'); 
@@ -147,7 +169,7 @@
                 d.onclick = () => selectChannel(c);
                 list.appendChild(d);
             };
-
+            
             if (channelsByCategory['null']) channelsByCategory['null'].filter(c => c.type === 0 || c.type === 5).forEach(renderChannel);
             categories.forEach(cat => {
                 const header = document.createElement('div');
@@ -160,15 +182,17 @@
             });
         }
 
-
         async function loadDms() {
+            document.querySelectorAll('.server-icon.active').forEach(el => el.classList.remove('active'));
+            document.getElementById('dm-icon').classList.add('active');
+            
             document.getElementById('guild-name').innerText = 'Direct Messages';
             document.getElementById('channel-panel').classList.remove('hidden');
             document.getElementById('chat-section').classList.add('hidden');
             const channels = await apiRequest('/users/@me/channels');
             const list = document.getElementById('channel-list');
             list.innerHTML = '';
-            channels.sort((a, b) => (b.last_message_id || '0').localeCompare(b.last_message_id || '0')).reverse().forEach(c => {
+            channels.sort((a, b) => (b.last_message_id || '0').localeCompare(a.last_message_id || '0')).forEach(c => {
                 const name = c.name || (c.recipients?.[0]?.global_name || c.recipients?.[0]?.username || 'DM');
                 const d = document.createElement('div');
                 d.id = `channel-${c.id}`;
@@ -180,106 +204,187 @@
         }
 
         async function selectChannel(ch) {
+            if (currentChannelId === ch.id) return; 
             currentChannelId = ch.id;
+            oldestMessageId = null;
+            isLoadingMore = false;
             lastMessageInfo = { authorId: null, timestamp: null };
             cancelReply();
             
             document.querySelectorAll('.channel-item.active').forEach(el => el.classList.remove('active'));
             document.getElementById(`channel-${ch.id}`)?.classList.add('active');
 
-            document.getElementById('chat-section').classList.remove('hidden');
+            const chatSection = document.getElementById('chat-section');
+            chatSection.classList.remove('hidden');
             let chName = ch.name || (ch.recipients?.[0]?.global_name || ch.recipients?.[0]?.username || 'DM');
-            document.getElementById('current-ch-name').innerText = `# ${chName}`;
+            document.getElementById('current-ch-name').innerHTML = `<span class="text-gray-500 mr-1 text-lg">#</span><span class="truncate">${chName}</span>`;
             
             const container = document.getElementById('message-container');
             container.innerHTML = '<div class="text-center text-xs opacity-50 m-auto">Loading history...</div>';
             
             const msgs = await apiRequest(`/channels/${ch.id}/messages?limit=50`);
             container.innerHTML = '';
-            if(Array.isArray(msgs)) msgs.reverse().forEach(renderMsg);
-            
+            if(Array.isArray(msgs) && msgs.length > 0) {
+                 lastMessageInfo = { authorId: null, timestamp: null };
+                 msgs.reverse().forEach(m => renderMsg(m, false, true));
+                 oldestMessageId = msgs[0].id;
+            }
             scrollToBottom();
         }
 
+        function parseContent(content) {
+            return content
+                .replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/&lt;a?:(\w+):(\d+)&gt;/g, (match, name, id) => `<img src="https://cdn.discordapp.com/emojis/${id}.png" alt=":${name}:" class="inline h-6 w-6 mx-0.5">`)
+                .replace(/(\r\n|\n|\r)/g, '<br>');
+        }
+        
         function formatTimestamp(iso) {
             const d = new Date(iso);
             const pad = (n) => n.toString().padStart(2, '0');
             return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
         }
         
-        function renderMsg(m, isNew = false) {
-            if(!m.author) return;
+        function renderMsg(m, isNew, isInitialLoad = false) {
+            if (!m.author) return;
             const container = document.getElementById('message-container');
             const authorName = m.author.global_name || m.author.username;
             const avatar = m.author.avatar ? `https://cdn.discordapp.com/avatars/${m.author.id}/${m.author.avatar}.png?size=64` : `https://cdn.discordapp.com/embed/avatars/${m.author.discriminator % 5}.png`;
-            
-            // Check for message grouping
-            const isGrouped = !m.referenced_message && 
-                m.author.id === lastMessageInfo.authorId && 
-                (new Date(m.timestamp) - new Date(lastMessageInfo.timestamp)) < 5 * 60 * 1000;
-            
-            let contentHTML = m.content.replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g, '<br>');
+
+            if (isInitialLoad && container.childElementCount === 0) {
+                 lastMessageInfo = { authorId: null, timestamp: null };
+            }
+
+            const isGrouped = !m.referenced_message && m.author.id === lastMessageInfo.authorId && (new Date(m.timestamp) - new Date(lastMessageInfo.timestamp)) < 5 * 60 * 1000;
+
+            let contentHTML = parseContent(m.content);
+
+            if (m.sticker_items) {
+                 contentHTML += `<img src="https://media.discordapp.net/stickers/${m.sticker_items[0].id}.png?size=160" alt="sticker" class="w-32 h-32 mt-2"/>`;
+            }
 
             if (m.attachments?.length > 0 && m.attachments[0].content_type?.startsWith('image')) {
                 contentHTML += `<br><img src="${m.attachments[0].url}" class="message-content" style="max-height: 250px; cursor: pointer;" onclick="window.open('${m.attachments[0].url}', '_blank')"/>`;
             }
-            
+
             let referencedMessageHTML = '';
             if (m.referenced_message) {
                 const ref = m.referenced_message;
-                const refAuthor = ref.author.global_name || ref.author.username;
-                const refContent = ref.content.length > 100 ? ref.content.substring(0, 100) + '...' : ref.content;
-                const refAvatar = ref.author.avatar ? `https://cdn.discordapp.com/avatars/${ref.author.id}/${ref.author.avatar}.png?size=32` : `https://cdn.discordapp.com/embed/avatars/${ref.author.discriminator % 5}.png`;
-
-                referencedMessageHTML = `
-                <div class="flex items-center text-xs opacity-70 mb-1 ml-10">
-                    <img src="${refAvatar}" class="w-4 h-4 rounded-full mr-2">
-                    <span class="font-semibold mr-2">${refAuthor}</span>
-                    <span class="truncate">${refContent}</span>
-                </div>
-                `;
+                if(ref && ref.author) {
+                    const refAuthor = ref.author.global_name || ref.author.username;
+                    let refContent = ref.content ? (ref.content.length > 100 ? ref.content.substring(0, 100) + '...' : ref.content) : 'Attachment';
+                    refContent = parseContent(refContent).replace(/<br>/g, ' ');
+                    const refAvatar = ref.author.avatar ? `https://cdn.discordapp.com/avatars/${ref.author.id}/${ref.author.avatar}.png?size=32` : `https://cdn.discordapp.com/embed/avatars/${ref.author.discriminator % 5}.png`;
+                    referencedMessageHTML = `<div class="flex items-center text-xs opacity-70 mb-1 ml-10 cursor-pointer" onclick="scrollToMessage('${ref.id}')">
+                        <img src="${refAvatar}" class="w-4 h-4 rounded-full mr-2"><span class="font-semibold mr-2">${refAuthor}</span><span class="truncate">${refContent}</span></div>`;
+                }
             }
-
+            
+            let reactionsHTML = '';
+            if (m.reactions) {
+                reactionsHTML = '<div class="flex flex-wrap gap-1 mt-1">';
+                m.reactions.forEach(r => {
+                    const emojiHTML = r.emoji.id ? `<img src="https://cdn.discordapp.com/emojis/${r.emoji.id}.png" class="w-4 h-4">` : `<span>${r.emoji.name}</span>`;
+                    reactionsHTML += `<div class="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full" style="background-color: var(--bg-quaternary);">${emojiHTML} <span class="font-semibold">${r.count}</span></div>`;
+                });
+                reactionsHTML += '</div>';
+            }
+            
+            const toolbarHTML = `<div class="message-toolbar absolute -top-4 right-4 flex items-center gap-1 p-1 rounded-md shadow" style="background-color:var(--bg-secondary)">
+                <div class="reaction-btn relative">
+                    <button class="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700">☺</button>
+                    <div class="reaction-picker absolute bottom-full mb-1 right-0 p-1 rounded-md shadow-lg flex gap-1" style="background-color:var(--bg-tertiary)">
+                       ${['👍','😂','😮','😢','😠','❤️'].map(e => `<button onclick="addReaction('${m.id}', '${e}')" class="p-1 text-xl hover:scale-125 transition-transform">${e}</button>`).join('')}
+                    </div>
+                </div>
+                <button onclick='startReply(${JSON.stringify(m).replace(/'/g, "\\'")})' class="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/></svg>
+                </button>
+            </div>`;
+            
             const div = document.createElement('div');
             div.id = `message-${m.id}`;
-            div.className = "relative px-4 message-group";
 
-            if (isGrouped) {
-                 div.innerHTML = `
-                    <div class="flex items-center">
-                        <div class="w-10 flex-shrink-0"></div> <!-- Placeholder for avatar -->
-                        <div class="ml-3 flex-1 min-w-0">
-                           <div class="text-sm break-words">${contentHTML}</div>
-                        </div>
-                         <button onclick='startReply(${JSON.stringify(m)})' class="reply-button absolute top-0 right-4 p-1 rounded bg-gray-200 dark:bg-gray-800 opacity-80 hover:opacity-100">
-                             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/></svg>
-                        </button>
-                    </div>`;
+            if (isGrouped && !isInitialLoad) {
+                div.className = "relative px-4 message-group pl-16 py-0.5";
+                div.innerHTML = `<div class="text-sm break-words">${contentHTML}</div> ${reactionsHTML} ${toolbarHTML}`;
             } else {
-                 div.className += " mt-4";
-                 div.innerHTML = `
-                    ${referencedMessageHTML}
-                    <div class="flex gap-3 items-start">
-                        <img src="${avatar}" class="w-10 h-10 rounded-full mt-0.5">
-                        <div class="flex-1 min-w-0">
-                            <div class="flex items-center gap-2">
-                                <span class="font-bold text-sm">${authorName}</span>
-                                <span class="text-xs opacity-40">${formatTimestamp(m.timestamp)}</span>
-                            </div>
-                            <div class="text-sm break-words">${contentHTML}</div>
-                        </div>
-                        <button onclick='startReply(${JSON.stringify(m)})' class="reply-button absolute top-1/2 -translate-y-1/2 right-4 p-1 rounded bg-gray-200 dark:bg-gray-800 opacity-80 hover:opacity-100">
-                             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/></svg>
-                        </button>
-                    </div>`;
+                div.className = "relative px-4 message-group pt-4";
+                div.innerHTML = `${referencedMessageHTML}
+                    <div class="flex gap-3 items-start"><img src="${avatar}" class="w-10 h-10 rounded-full mt-0.5">
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2"><span class="font-bold text-sm">${authorName}</span><span class="text-xs opacity-40">${formatTimestamp(m.timestamp)}</span></div>
+                        <div class="text-sm break-words">${contentHTML}</div>
+                         ${reactionsHTML}
+                    </div></div> ${toolbarHTML}`;
             }
 
-            const shouldScroll = isNew && (container.scrollTop + container.clientHeight > container.scrollHeight - 50);
+            const shouldScroll = isNew && (container.scrollTop + container.clientHeight > container.scrollHeight - 100);
 
-            container.appendChild(div);
+            if (isNew) {
+                container.appendChild(div);
+            } else {
+                container.insertBefore(div, container.firstChild);
+            }
 
             lastMessageInfo = { authorId: m.author.id, timestamp: m.timestamp };
             if (shouldScroll) scrollToBottom();
+        }
+        
+        function updateMessage(messageData) {
+            const el = document.getElementById(`message-${messageData.id}`);
+            if(el) {
+                let reactionsHTML = '';
+                 if (messageData.reactions && messageData.reactions.length > 0) {
+                    reactionsHTML = '<div class="flex flex-wrap gap-1 mt-1">';
+                    messageData.reactions.forEach(r => {
+                        const emojiHTML = r.emoji.id ? `<img src="https://cdn.discordapp.com/emojis/${r.emoji.id}.png" class="w-4 h-4">` : `<span>${r.emoji.name}</span>`;
+                        reactionsHTML += `<div class="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full" style="background-color: var(--bg-quaternary);">${emojiHTML} <span class="font-semibold">${r.count}</span></div>`;
+                    });
+                    reactionsHTML += '</div>';
+                }
+                const reactionsContainer = el.querySelector('.flex.flex-wrap.gap-1.mt-1');
+                if(reactionsContainer) reactionsContainer.innerHTML = reactionsHTML;
+            }
+        }
+
+        async function loadMoreMessages() {
+            if (isLoadingMore || !oldestMessageId || !currentChannelId) return;
+            isLoadingMore = true;
+            const container = document.getElementById('message-container');
+            const loader = document.createElement('div');
+            loader.className = "text-center py-4 text-xs opacity-50";
+            loader.innerText = "Loading more...";
+            container.prepend(loader);
+
+            const msgs = await apiRequest(`/channels/${currentChannelId}/messages?limit=50&before=${oldestMessageId}`);
+            
+            loader.remove();
+            
+            if (Array.isArray(msgs) && msgs.length > 0) {
+                const oldScrollHeight = container.scrollHeight;
+                lastMessageInfo = { authorId: null, timestamp: null };
+                msgs.reverse().forEach(m => renderMsg(m, false, true));
+                oldestMessageId = msgs[msgs.length -1].id;
+                container.scrollTop = container.scrollHeight - oldScrollHeight;
+            } else {
+                oldestMessageId = null;
+            }
+            isLoadingMore = false;
+        }
+        
+        async function addReaction(messageId, emoji) {
+             await apiRequest(`/channels/${currentChannelId}/messages/${messageId}/reactions/${encodeURIComponent(emoji)}/@me`, 'PUT');
+        }
+
+        function scrollToMessage(messageId) {
+            const el = document.getElementById(`message-${messageId}`);
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                el.style.transition = 'background-color 0.5s';
+                el.style.backgroundColor = 'var(--active-bg)';
+                setTimeout(() => { el.style.backgroundColor = '' }, 2000);
+            }
         }
         
         function startReply(message) {
@@ -302,14 +407,16 @@
             const content = input.value.trim();
             if(!content || !currentChannelId) return;
             
-            const body = { content };
+            const body = { content, nonce: Date.now().toString() };
             if (replyingTo) {
-                body.message_reference = { message_id: replyingTo.messageId };
+                body.message_reference = { message_id: replyingTo.messageId, channel_id: currentChannelId };
             }
 
             input.value = '';
+            input.dispatchEvent(new Event('input'));
             cancelReply();
-            await apiRequest(`/channels/${currentChannelId}/messages`, 'POST', body);
+
+            apiRequest(`/channels/${currentChannelId}/messages`, 'POST', body);
         }
 
         function connectWS() {
@@ -318,18 +425,21 @@
             ws.onmessage = (e) => {
                 const data = JSON.parse(e.data);
                 if(data.s) lastSequence = data.s;
+                
                 if(data.op === 10) {
                     if(heartbeatInterval) clearInterval(heartbeatInterval);
                     heartbeatInterval = setInterval(() => ws.send(JSON.stringify({op:1, d: lastSequence})), data.d.heartbeat_interval);
                     ws.send(JSON.stringify({ op: 2, d: { token: userToken, properties: { os: "windows", browser: "chrome", device: "" } } }));
-                }
-                if(data.t === 'READY') document.getElementById('ws-status').classList.replace('bg-gray-500', 'bg-green-500');
-                if(data.t === 'MESSAGE_CREATE' && data.d.channel_id === currentChannelId) {
+                } else if(data.t === 'READY') {
+                    document.getElementById('ws-status').classList.replace('bg-gray-500', 'bg-green-500');
+                } else if(data.t === 'MESSAGE_CREATE' && data.d.channel_id === currentChannelId) {
                     renderMsg(data.d, true);
+                } else if (data.t === 'MESSAGE_UPDATE' && data.d.channel_id === currentChannelId) {
+                    updateMessage(data.d);
                 }
             };
             ws.onclose = () => {
-                document.getElementById('ws-status').classList.replace('bg-green-500', 'bg-gray-500');
+                document.getElementById('ws-status').classList.replace('bg-green-500', 'bg-red-500');
                 if(heartbeatInterval) clearInterval(heartbeatInterval);
                 setTimeout(connectWS, 5000);
             };
@@ -338,15 +448,32 @@
 
         function scrollToBottom() { const c = document.getElementById('message-container'); c.scrollTop = c.scrollHeight; }
         function logout() { localStorage.removeItem('token'); location.reload(); }
+        
         document.getElementById('login-form').onsubmit = (e) => { e.preventDefault(); loginWithToken(document.getElementById('token-input').value); };
         document.getElementById('dm-icon').onclick = loadDms;
         document.getElementById('send-button').onclick = sendMessage;
         document.getElementById('cancel-reply-btn').onclick = cancelReply;
         document.getElementById('message-input').onkeypress = (e) => { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }};
+        document.getElementById('message-container').addEventListener('scroll', (e) => {
+            if (e.target.scrollTop === 0) {
+                loadMoreMessages();
+            }
+        });
+        document.getElementById('message-input').addEventListener('input', e => {
+            document.getElementById('send-button').disabled = e.target.value.trim() === '';
+        });
         
-        const saved = localStorage.getItem('token');
-        if(saved) loginWithToken(saved);
-        if (window.matchMedia('(prefers-color-scheme: dark)').matches || localStorage.theme === 'dark') document.documentElement.classList.add('dark');
+        document.addEventListener('DOMContentLoaded', () => {
+             const savedToken = localStorage.getItem('token');
+            if (savedToken) {
+                loginWithToken(savedToken);
+            }
+            if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                 document.documentElement.classList.add('dark');
+            }
+            document.getElementById('send-button').disabled = true;
+        });
+
     </script>
 </body>
 </html>
