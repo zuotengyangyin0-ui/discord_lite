@@ -1219,3 +1219,79 @@
         document.getElementById('back-to-channels-btn').onclick = showSidebarView;
         document.getElementById('message-input').addEventListener('input', handleInput);
         document.getElementById('message-input').addEventListener('keypress', e=>{
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        }
+        );
+        document.getElementById('message-container').addEventListener('scroll', e=>{
+            if (e.target.scrollTop < 100 && oldestMessageId) loadMoreMessages()
+        }
+        );
+        document.body.addEventListener('paste', e=>{
+            const file = e.clipboardData.files[0];
+            if (file) {
+                e.preventDefault();
+                setAttachment(file);
+            }
+        }
+        );
+        document.getElementById('theme-toggle-btn').addEventListener('click', ()=>{
+            document.documentElement.classList.toggle('dark');
+            localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+            applyTheme();
+        }
+        );
+        
+        // Status picker toggle
+        document.getElementById('user-info-panel').onclick = (e)=>{
+             // Prevent the account switcher from opening if the status picker is open
+             if(e.target.closest('#status-picker')) return; 
+
+             const switcher = document.getElementById('account-switcher');
+             const picker = document.getElementById('status-picker');
+
+             // If the click is on the user info panel area (not on an account switcher item)
+             if(e.target.closest('#user-info-panel')) {
+                 if (!picker.classList.contains('hidden')) {
+                     picker.classList.add('hidden');
+                     switcher.classList.toggle('hidden');
+                 } else {
+                     picker.classList.remove('hidden');
+                     switcher.classList.add('hidden'); // Close switcher if picker is opened
+                 }
+             }
+        };
+
+        // Click outside handler for status picker and account switcher
+        document.addEventListener('click', (e) => {
+            const picker = document.getElementById('status-picker');
+            const switcher = document.getElementById('account-switcher');
+            const infoPanel = document.getElementById('user-info-panel');
+            
+            if (!infoPanel.contains(e.target) && !picker.contains(e.target) && !switcher.contains(e.target)) {
+                picker.classList.add('hidden');
+                switcher.classList.add('hidden');
+            }
+        });
+
+
+        document.getElementById('add-account-switcher-btn').onclick = ()=>{
+            document.getElementById('account-switcher').classList.add('hidden');
+            showLoginScreen();
+        }
+        ;
+        document.getElementById('cancel-add-account-button').onclick = ()=>{
+            const a = getAccounts();
+            if (a.length > 0) switchAccount(getActiveAccountId() || a[0].id);
+        }
+        ;
+        window.addEventListener('resize', handleResize);
+        
+        logger('Application loaded and initialized.', 'info');
+    }
+    );
+</script>
+    </body>
+</html>
