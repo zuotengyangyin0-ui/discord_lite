@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ja">
     <head>
@@ -6,7 +5,6 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Discord Lite</title>
         <script src="https://cdn.tailwindcss.com"></script>
-        <script></script>
         <script>
             tailwind.config = {
                 darkMode: 'class'
@@ -29,6 +27,10 @@
         --mention-bg: rgba(88, 101, 242, 0.1);
         --mention-fg: #5865f2;
         --system-bg: rgba(88, 166, 255, 0.1);
+        --status-online: #3ba55d;
+        --status-idle: #faa81a;
+        --status-dnd: #ed4245;
+        --status-offline: #747f8d;
     }
 
     html.dark {
@@ -78,6 +80,7 @@
         background-color: #f84a4b;
         border-radius: 50%;
         border: 2px solid var(--bg-tertiary);
+        z-index: 10;
     }
 
     .channel-item .ping-dot {
@@ -144,6 +147,22 @@
         opacity: 0;
         transition: opacity 0.1s ease-in-out;
     }
+
+    .status-dot {
+        position: absolute;
+        bottom: 0;
+        right: 0;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        border: 3px solid var(--bg-secondary);
+        z-index: 5;
+    }
+
+    .status-dot.online { background-color: var(--status-online); }
+    .status-dot.idle { background-color: var(--status-idle); }
+    .status-dot.dnd { background-color: var(--status-dnd); }
+    .status-dot.offline { background-color: var(--status-offline); }
 </style>
     </head>
     <body class="font-sans h-screen flex flex-col overflow-hidden bg-gray-200 dark:bg-gray-800 text-[var(--text-primary)]">
@@ -239,6 +258,46 @@
                     </div>
                 </div>
             </div>
+            <div id="profile-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 items-center justify-center p-4">
+                <div class="bg-[var(--bg-secondary)] dark:bg-gray-700 rounded-lg shadow-2xl w-full max-w-sm" style="border-color: var(--border-color);">
+                    <div id="profile-modal-header" class="h-20 rounded-t-lg relative" style="background-color: var(--button-bg);">
+                        <button onclick="closeProfileModal()" class="absolute top-2 right-2 p-1 rounded-full text-white hover:bg-black/20">
+                            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
+                        </button>
+                    </div>
+                    <div class="p-4 pt-0">
+                        <div class="flex relative -mt-12 mb-4">
+                            <img id="profile-avatar" class="w-24 h-24 rounded-full border-4" style="border-color: var(--bg-secondary);">
+                            <div id="profile-status-dot" class="status-dot w-5 h-5" style="bottom: 4px; right: 4px; border-width: 4px;"></div>
+                        </div>
+                        <h2 id="profile-name" class="text-xl font-bold truncate"></h2>
+                        <div id="profile-username" class="text-sm opacity-60 mb-4"></div>
+                        <div id="profile-details">
+                            <div class="mb-3">
+                                <b class="block text-xs uppercase opacity-70">メンバーシップ</b>
+                                <span id="profile-member-since" class="text-sm"></span>
+                            </div>
+                        </div>
+                        <button id="block-user-btn" class="w-full bg-red-600 hover:bg-red-700 py-2 mt-4 rounded-md font-bold text-white"></button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="status-picker" class="hidden absolute bottom-20 left-2 w-48 p-2 rounded-lg shadow-2xl z-20" style="background-color: var(--bg-tertiary);">
+                <div class="text-xs font-bold uppercase opacity-70 mb-1">ステータスを設定</div>
+                <div id="status-online" class="flex items-center gap-2 p-2 rounded-md cursor-pointer hover:bg-gray-500/20" onclick="updateStatus('online')">
+                    <div class="status-dot online"></div><span class="ml-4">オンライン</span>
+                </div>
+                <div id="status-idle" class="flex items-center gap-2 p-2 rounded-md cursor-pointer hover:bg-gray-500/20" onclick="updateStatus('idle')">
+                    <div class="status-dot idle"></div><span class="ml-4">退席中</span>
+                </div>
+                <div id="status-dnd" class="flex items-center gap-2 p-2 rounded-md cursor-pointer hover:bg-gray-500/20" onclick="updateStatus('dnd')">
+                    <div class="status-dot dnd"></div><span class="ml-4">取り込み中</span>
+                </div>
+                <div id="status-offline" class="flex items-center gap-2 p-2 rounded-md cursor-pointer hover:bg-gray-500/20" onclick="updateStatus('invisible')">
+                    <div class="status-dot offline"></div><span class="ml-4">オフライン</span>
+                </div>
+            </div>
         </div>
 <script>
     const API_BASE = 'https://discord.com/api/v10';
@@ -259,6 +318,15 @@
     const saveAccounts = a=>localStorage.setItem('accounts', JSON.stringify(a));
     const getActiveAccountId = ()=>localStorage.getItem('activeAccountId');
     const setActiveAccountId = id=>localStorage.setItem('activeAccountId', id);
+    const getBlockedUsers = ()=>JSON.parse(localStorage.getItem('blockedUsers') || '[]')
+    const saveBlockedUsers = b=>localStorage.setItem('blockedUsers', JSON.stringify(b))
+    const getStatus = ()=>localStorage.getItem('userStatus') || 'online';
+    const setStatus = s=>localStorage.setItem('userStatus', s);
+
+    function logger(message, type = 'info') {
+        const timestamp = new Date().toLocaleTimeString();
+        console.log(`[${timestamp}] [${type.toUpperCase()}] ${message}`);
+    }
 
     const generateSuperProperties = ()=>btoa(JSON.stringify({
         os: "Windows",
@@ -285,6 +353,9 @@
         document.getElementById('guild-name').innerText = '';
         cancelReply();
         cancelAttachment();
+        closeProfileModal();
+        document.getElementById('status-picker').classList.add('hidden');
+        logger('Cleanup complete and state reset.', 'info');
     }
     async function apiRequest(token, path, method='GET', body=null, isFormData=false) {
         const o = {
@@ -306,17 +377,19 @@
             const r = await fetch(`${API_BASE}${path}`, o);
             const data = r.status === 204 ? {} : await r.json();
             if (!r.ok) {
+                logger(`API Request Failed: ${method} ${path} - Status: ${r.status}, Error: ${data?.message || 'Unknown'}`, 'error');
                 return {
                     error: data,
                     status: r.status
                 };
             }
+            logger(`API Request Success: ${method} ${path}`, 'debug');
             return {
                 data,
                 status: r.status
             };
         } catch (e) {
-            console.error("API Request Failed:", e);
+            logger(`API Request Failed (Network): ${method} ${path} - ${e.message}`, 'error');
             return {
                 error: {
                     message: "Network error"
@@ -330,6 +403,7 @@
         document.getElementById('login-error').innerText = "";
         if (!token || !token.trim()) {
             document.getElementById('login-error').innerText = "トークンは必須です。";
+            logger('Login failed: Token missing.', 'warn');
             return
         }
         token = token.trim().replace(/^"|"$/g, '');
@@ -339,11 +413,13 @@
         t.classList.add('hidden');
         s.classList.remove('hidden');
         b.disabled = true;
+        logger('Attempting to verify token and fetch user details...', 'info');
         const result = await apiRequest(token, '/users/@me');
         t.classList.remove('hidden');
         s.classList.add('hidden');
         b.disabled = false;
         if (result.data && result.data.id) {
+            logger(`Token verified for user: ${result.data.username}`, 'success');
             const a = getAccounts();
             const i = a.findIndex(acc=>acc.id === result.data.id);
             const n = {
@@ -356,6 +432,7 @@
             switchAccount(result.data.id);
         } else {
             document.getElementById('login-error').innerText = `エラー: ${result.error?.message || '無効なトークンかAPIエラーです。'}`;
+            logger(`Token verification failed. Status: ${result.status}`, 'error');
         }
     }
     function switchAccount(id) {
@@ -373,6 +450,7 @@
         renderAccountSwitcher();
         loadGuilds();
         connectWS();
+        logger(`Switched to account: ${currentAccount.username}`, 'info');
     }
     function deleteAccount(id, e) {
         e.stopPropagation();
@@ -380,6 +458,7 @@
         let a = getAccounts();
         a = a.filter(acc=>acc.id !== id);
         saveAccounts(a);
+        logger(`Deleted account ID: ${id}`, 'info');
         if (getActiveAccountId() === id) {
             if (a.length > 0) switchAccount(a[0].id);
             else {
@@ -389,23 +468,72 @@
         } else renderAccountSwitcher();
     }
 
+    function getAvatarUrl(user, size=64) {
+        if (user.avatar) return `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=${size}`;
+        return `https://cdn.discordapp.com/embed/avatars/${user.discriminator % 5}.png`;
+    }
+    function renderStatusDot(status) {
+        const dot = document.createElement('div');
+        dot.className = `status-dot ${status || 'offline'}`;
+        return dot.outerHTML;
+    }
+
     function renderUserInfo() {
         if (!currentAccount) return;
         const p = document.getElementById('user-info-panel');
-        const a = currentAccount.avatar ? `https://cdn.discordapp.com/avatars/${currentAccount.id}/${currentAccount.avatar}.png?size=64` : `https://cdn.discordapp.com/embed/avatars/${currentAccount.discriminator % 5}.png`;
-        p.innerHTML = `<img src="${a}" class="w-10 h-10 rounded-full"><div class="flex-1 truncate"><b class="text-sm truncate">${currentAccount.global_name || currentAccount.username}</b><div class="text-xs opacity-60 truncate">@${currentAccount.username}</div></div>`;
+        const avatarUrl = getAvatarUrl(currentAccount);
+        const status = getStatus();
+        p.innerHTML = `
+            <div class="relative w-10 h-10 flex-shrink-0">
+                <img src="${avatarUrl}" class="w-full h-full rounded-full">
+                ${renderStatusDot(status)}
+            </div>
+            <div class="flex-1 truncate">
+                <b class="text-sm truncate">${currentAccount.global_name || currentAccount.username}</b>
+                <div class="text-xs opacity-60 truncate">@${currentAccount.username}</div>
+            </div>
+        `;
     }
+    
     function renderAccountSwitcher() {
         const l = document.getElementById('account-list');
         const a = getAccounts();
         const i = getActiveAccountId();
         l.innerHTML = a.map(acc=>{
-            const av = acc.avatar ? `https://cdn.discordapp.com/avatars/${acc.id}/${acc.avatar}.png?size=64` : `https://cdn.discordapp.com/embed/avatars/${acc.discriminator % 5}.png`;
+            const av = getAvatarUrl(acc);
             const isA = acc.id === i;
-            return `<div class="flex items-center gap-2 p-2 rounded-md cursor-pointer hover:bg-gray-500/20" onclick="switchAccount('${acc.id}')"><img src="${av}" class="w-8 h-8 rounded-full"><span class="flex-1 truncate text-sm font-semibold">${acc.global_name || acc.username}</span> ${isA ? '<svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg>' : ''} <div onclick="deleteAccount('${acc.id}',event)" title="削除" class="p-1 rounded-full text-red-500 hover:bg-red-500/20"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path></svg></div></div>`;
-        }
-        ).join('');
+            return `<div class="flex items-center gap-2 p-2 rounded-md cursor-pointer hover:bg-gray-500/20" onclick="switchAccount('${acc.id}')">
+                <img src="${av}" class="w-8 h-8 rounded-full">
+                <span class="flex-1 truncate text-sm font-semibold">${acc.global_name || acc.username}</span> 
+                ${isA ? '<svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg>' : ''} 
+                <div onclick="deleteAccount('${acc.id}',event)" title="削除" class="p-1 rounded-full text-red-500 hover:bg-red-500/20">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path></svg>
+                </div>
+            </div>`;
+        }).join('');
     }
+    
+    async function updateStatus(status) {
+        if (!currentAccount) return;
+        setStatus(status);
+        renderUserInfo();
+        document.getElementById('status-picker').classList.add('hidden');
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({
+                op: 3,
+                d: {
+                    status: status,
+                    since: 0,
+                    afk: status === 'idle'
+                }
+            }));
+            logger(`Status updated to: ${status}`, 'info');
+        } else {
+            logger('WebSocket not open. Status updated locally.', 'warn');
+        }
+    }
+
+
     async function loadGuilds() {
         if (!currentAccount) return;
         const {data: g} = await apiRequest(currentAccount.token, '/users/@me/guilds');
@@ -426,6 +554,7 @@
             l.appendChild(el);
         }
         );
+        logger(`Loaded ${g.length} guilds.`, 'info');
     }
     async function loadChannels(g, t) {
         if (!currentAccount) return;
@@ -463,6 +592,7 @@
         }
         );
         updatePingDots();
+        logger(`Loaded ${c.length} channels for guild: ${g.name}`, 'info');
     }
     async function loadDms(t) {
         if (!currentAccount) return;
@@ -476,9 +606,7 @@
         d.sort((a,b)=>(b.last_message_id || '0').localeCompare(a.last_message_id || '0')).forEach(dm => {
             const recipient = dm.recipients?.[0] || {};
             const name = dm.name || recipient.global_name || recipient.username || 'DM';
-            const avatar = recipient.avatar ?
-                `https://cdn.discordapp.com/avatars/${recipient.id}/${recipient.avatar}.png?size=64` :
-                `https://cdn.discordapp.com/embed/avatars/${recipient.discriminator % 5}.png`;
+            const avatar = getAvatarUrl(recipient);
 
             const el = document.createElement('div');
             el.id = `channel-${dm.id}`;
@@ -488,6 +616,7 @@
             l.appendChild(el);
         });
         updatePingDots();
+        logger(`Loaded ${d.length} DMs.`, 'info');
     }
 
 
@@ -507,9 +636,11 @@
         if (cE) cE.classList.add('active');
         if (window.innerWidth < 768) showChatView();
         let name = ch.name || ch.recipients?.[0]?.global_name || ch.recipients?.[0]?.username || 'DM';
-        document.getElementById('channel-name-text').innerHTML = `<span class="text-gray-500 mr-1">#</span><span>${name}</span>`;
+        document.getElementById('channel-name-text').innerHTML = `<span class="text-gray-500 mr-1">${ch.guild_id ? '#' : ''}</span><span>${name}</span>`;
         const con = document.getElementById('message-container');
-        con.innerHTML = '<div class="m-auto text-xs opacity-50">...</div>';
+        con.innerHTML = '<div class="m-auto text-xs opacity-50">メッセージを読み込み中...</div>';
+        logger(`Selected channel: ${name} (${ch.id})`, 'info');
+
         const {data: ms} = await apiRequest(currentAccount.token, `/channels/${ch.id}/messages?limit=100`);
         con.innerHTML = '';
         if (Array.isArray(ms) && ms.length > 0) {
@@ -521,6 +652,8 @@
                  await apiRequest(currentAccount.token, `/channels/${ch.id}/messages/${lastReadId}/ack`, 'POST', {});
             }
             setTimeout(()=>con.scrollTop = con.scrollHeight, 0);
+        } else {
+             con.innerHTML = '<div class="m-auto text-xs opacity-50">メッセージはありません。</div>';
         }
         if (ch.guild_id) checkTimeoutStatus(ch.guild_id);
         else setInputState(true);
@@ -530,13 +663,21 @@
         isLoadingMore = true;
         const con = document.getElementById('message-container');
         const oldHeight = con.scrollHeight;
+        logger(`Loading messages before: ${oldestMessageId}`, 'debug');
+
         const {data: m} = await apiRequest(currentAccount.token, `/channels/${currentChannel.id}/messages?limit=100&before=${oldestMessageId}`);
         if (Array.isArray(m) && m.length > 0) {
             oldestMessageId = m[m.length - 1].id;
             m.reverse().forEach(msg=>renderMsg(msg, false, true));
             con.scrollTop = con.scrollHeight - oldHeight;
+            logger(`Loaded ${m.length} older messages.`, 'debug');
         } else {
             oldestMessageId = null;
+            const topEl = document.createElement('div');
+            topEl.className = 'text-center text-xs opacity-50 py-4';
+            topEl.innerText = 'これ以上古いメッセージはありません。';
+            con.prepend(topEl);
+            logger('No more older messages found.', 'debug');
         }
         isLoadingMore = false;
     }
@@ -549,9 +690,19 @@
         }
     }
     
-    // Reply UI Fix
     function renderMsg(m, isNew, isPrepended=false) {
         if (!m.author || !currentAccount) return;
+
+        // Blocked User Check
+        const blockedUsers = getBlockedUsers();
+        if (blockedUsers.includes(m.author.id)) {
+            logger(`Message from blocked user (${m.author.username}) skipped.`, 'debug');
+            if (!isPrepended) {
+                 lastMessageInfo = { authorId: null, timestamp: null }; // Grouping reset
+            }
+            return;
+        }
+
         const p = document.getElementById('message-container');
         const isGrouped = !isPrepended && m.author.id === lastMessageInfo.authorId && (new Date(m.timestamp) - new Date(lastMessageInfo.timestamp)) < 300 * 1000;
         
@@ -562,8 +713,8 @@
             .replace(urlRegex, '<a href="$1" target="_blank" class="text-[var(--text-link)] hover:underline">$1</a>')
             .replace(/\n/g, '<br>')
             .replace(/&lt;@!?(\d+)&gt;/g, (_,id)=>{
-                const u = m.mentions.find(mu=>mu.id === id);
-                return u ? `<span class="mention">@${u.global_name || u.username} (${u.username})</span>` : '@unknown-user';
+                const u = m.mentions.find(mu=>mu.id === id) || m.author.id === id ? m.author : null;
+                return u ? `<span class="mention" onclick="openProfileModal('${u.id}', '${m.guild_id || ''}')">@${u.global_name || u.username}</span>` : '@unknown-user';
             })
             .replace(/&lt;a?:(\w+):(\d+)&gt;/g, (_,n,i)=>`<img src="https://cdn.discordapp.com/emojis/${i}.webp?size=48&quality=lossless" alt=":${n}:" class="inline h-6 w-6">`);
 
@@ -580,7 +731,7 @@
             const rAuth = rm.author;
             const rAuthName = rAuth.global_name || rAuth.username;
             const rCont = rm.content ? rm.content.substring(0, 100) : '添付ファイル';
-            const rAuthAvatar = rAuth.avatar ? `https://cdn.discordapp.com/avatars/${rAuth.id}/${rAuth.avatar}.png?size=32` : `https://cdn.discordapp.com/embed/avatars/${rAuth.discriminator % 5}.png`;
+            const rAuthAvatar = getAvatarUrl(rAuth, 32);
 
             replyHtml = `
                 <div class="relative ml-14 flex items-center cursor-pointer" onclick="scrollToMessage('${rm.id}')">
@@ -592,8 +743,8 @@
         }
         if (m.embeds?.length > 0) contentHtml += m.embeds.map(renderEmbed).join('');
         const displayName = m.author.global_name || m.author.username;
-        const nm = `${displayName} <span class="text-xs opacity-60">(@${m.author.username})</span>`;
-        const av = m.author.avatar ? `https://cdn.discordapp.com/avatars/${m.author.id}/${m.author.avatar}.png?size=64` : `https://cdn.discordapp.com/embed/avatars/${m.author.discriminator % 5}.png`;
+        const nm = `<span class="cursor-pointer" onclick="openProfileModal('${m.author.id}', '${m.guild_id || ''}')">${displayName}</span> <span class="text-xs opacity-60">(@${m.author.username})</span>`;
+        const av = getAvatarUrl(m.author);
         const el = document.createElement('div');
         el.id = `message-${m.id}`;
         el.className = "px-4 message-group relative";
@@ -602,7 +753,7 @@
         if (isGrouped) {
             el.innerHTML = `<div class="flex pl-14 pt-0.5"><div class="text-sm break-words message-content-text">${contentHtml}</div></div> ${toolbarHtml}`;
         } else {
-            el.innerHTML = `${replyHtml}<div class="flex gap-3 pt-4"><img src="${av}" class="w-10 h-10 rounded-full mt-0.5 flex-shrink-0"><div class="flex-1 min-w-0"><div><b class="text-sm">${nm}</b><span class="text-xs opacity-40 ml-2">${new Date(m.timestamp).toLocaleString()}</span></div><div class="text-sm break-words message-content-text">${contentHtml}</div></div></div> ${toolbarHtml}`;
+            el.innerHTML = `${replyHtml}<div class="flex gap-3 pt-4"><img src="${av}" class="w-10 h-10 rounded-full mt-0.5 flex-shrink-0 cursor-pointer" onclick="openProfileModal('${m.author.id}', '${m.guild_id || ''}')"><div class="flex-1 min-w-0"><div><b class="text-sm">${nm}</b><span class="text-xs opacity-40 ml-2">${new Date(m.timestamp).toLocaleString()}</span></div><div class="text-sm break-words message-content-text">${contentHtml}</div></div></div> ${toolbarHtml}`;
         }
         el.querySelector('.message-content-text').dataset.originalContent = originalContent;
         if (isPrepended) {
@@ -645,15 +796,21 @@
             message_id: replyingTo.messageId
         };
         if (attachedFile) return sendMessageWithFile(payload);
+        
+        const originalContent = input.value;
         input.value = '';
         handleInput();
         cancelReply();
+        logger(`Sending message to channel ${currentChannel.id}: ${content.substring(0, 50)}...`, 'info');
+        
         const res = await apiRequest(currentAccount.token, `/channels/${currentChannel.id}/messages`, 'POST', payload);
         if (res.error) {
-            input.value = content;
+            input.value = originalContent;
             handleInput();
             const msg = res.error.message || '送信失敗';
-            console.error("Send Error:", res.error)
+            logger(`Message send failed: ${msg}`, 'error');
+        } else {
+             logger('Message sent successfully.', 'success');
         }
     }
     async function sendMessageWithFile(payload={}) {
@@ -666,8 +823,11 @@
         handleInput();
         cancelReply();
         cancelAttachment();
+        logger(`Sending file: ${attachedFile.name}`, 'info');
+
         const res = await apiRequest(currentAccount.token, `/channels/${currentChannel.id}/messages`, 'POST', fd, true);
-        if (res.error) console.error("File Send Error", res.error)
+        if (res.error) logger(`File send failed: ${res.error.message || 'Unknown error'}`, 'error');
+        else logger('File sent successfully.', 'success');
     }
     function startReply(m) {
         replyingTo = {
@@ -676,15 +836,18 @@
         document.getElementById('reply-bar').classList.remove('hidden');
         document.getElementById('reply-username').innerText = `@${m.author.global_name || m.author.username}`;
         document.getElementById('message-input').focus();
+        logger(`Starting reply to message: ${m.id}`, 'info');
     }
     function cancelReply() {
         replyingTo = null;
         document.getElementById('reply-bar').classList.add('hidden');
+        logger('Reply cancelled.', 'info');
     }
     async function deleteMessage(id) {
         if (!currentChannel) return;
         if (confirm("本当にこのメッセージを削除しますか？")) {
             await apiRequest(currentAccount.token, `/channels/${currentChannel.id}/messages/${id}`, 'DELETE');
+            logger(`Message ID ${id} deleted.`, 'info');
         }
     }
     function startEdit(id) {
@@ -710,10 +873,12 @@
         ;
         contentEl.querySelectorAll('b')[0].onclick = ()=>cancelEdit(id, original);
         contentEl.querySelectorAll('b')[1].onclick = ()=>saveEdit(id);
+        logger(`Starting edit for message: ${id}`, 'info');
     }
     function cancelEdit(id, original) {
         const el = document.getElementById(`message-${id}`)?.querySelector('.message-content-text');
         if (el) el.innerHTML = original.replace(/\n/g, '<br>');
+        logger(`Edit cancelled for message: ${id}`, 'info');
     }
     async function saveEdit(id) {
         const el = document.getElementById(`message-${id}`);
@@ -724,6 +889,7 @@
             await apiRequest(currentAccount.token, `/channels/${currentChannel.id}/messages/${id}`, 'PATCH', {
                 content: newContent
             });
+            logger(`Message ID ${id} edited.`, 'info');
         } else {
             deleteMessage(id);
         }
@@ -735,21 +901,27 @@
         document.getElementById('attachment-preview-name').textContent = file.name;
         document.getElementById('attachment-preview-bar').classList.remove('hidden');
         handleInput();
+        logger(`Attachment set: ${file.name}`, 'info');
     }
     function cancelAttachment() {
         attachedFile = null;
         document.getElementById('file-input').value = "";
         document.getElementById('attachment-preview-bar').classList.add('hidden');
         handleInput();
+        logger('Attachment cancelled.', 'info');
     }
 
     function connectWS() {
         if (!currentAccount || !currentAccount.token) return;
         if (ws) ws.close();
         ws = new WebSocket('wss://gateway.discord.gg/?v=10&encoding=json');
+        
+        ws.onopen = () => logger('WebSocket connected.', 'success');
         ws.onmessage = e=>{
             const d = JSON.parse(e.data);
             if (d.s) lastSequence = d.s;
+            // logger(`WS Event: OP=${d.op}, T=${d.t}`, 'debug');
+
             if (d.op === 10) {
                 if (heartbeatInterval) clearInterval(heartbeatInterval);
                 heartbeatInterval = setInterval(()=>ws.send(JSON.stringify({
@@ -764,9 +936,17 @@
                             $os: "windows",
                             $browser: "chrome",
                             $device: ""
+                        },
+                        presence: {
+                            status: getStatus(), // Set initial status
+                            since: 0,
+                            afk: getStatus() === 'idle'
                         }
                     }
                 }));
+                logger('Received Hello, sent Identify.', 'info');
+            } else if (d.t === 'READY') {
+                logger('Received READY event.', 'info');
             } else if (d.t === 'MESSAGE_CREATE') {
                 const con = document.getElementById('message-container');
                 const isScrolled = (con.scrollHeight - con.scrollTop - con.clientHeight) < 100;
@@ -791,12 +971,13 @@
         }
         ;
         ws.onclose = ()=>{
+            logger('WebSocket closed. Attempting reconnect in 5s.', 'warn');
             if (heartbeatInterval) clearInterval(heartbeatInterval);
             if (currentAccount) setTimeout(connectWS, 5000);
         }
         ;
         ws.onerror = e=>{
-            console.error('WS Error:', e);
+            logger('WS Error occurred, closing connection.', 'error');
             ws.close();
         }
         ;
@@ -840,18 +1021,23 @@
                 if (diff <= 0) {
                     setInputState(true);
                     clearInterval(timeoutInterval);
+                    logger('Timeout ended.', 'info');
                 } else {
                     const d = Math.floor(diff / 86400);
                     const h = Math.floor(diff / 3600) % 24;
-                    const m = Math.floor(diff / 60) % 60;
+                    const min = Math.floor(diff / 60) % 60;
                     const s = Math.floor(diff % 60);
-                    setInputState(false, `タイムアウト中: ${d > 0 ? `${d}d` : ''} ${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`);
+                    setInputState(false, `タイムアウト中: ${d > 0 ? `${d}d` : ''} ${h.toString().padStart(2, '0')}:${min.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`);
                 }
             }
             ;
             update();
             timeoutInterval = setInterval(update, 1000);
-        } else setInputState(true);
+            logger('User is currently timed out.', 'warn');
+        } else {
+            setInputState(true);
+            logger('User is not timed out.', 'info');
+        }
     }
     function setInputState(enabled, placeholder="メッセージを送信") {
         const i = document.getElementById('message-input');
@@ -874,6 +1060,94 @@
         else p.classList.add('hidden');
     }
 
+    // Profile and Block Functions
+    async function openProfileModal(userId, guildId) {
+        if (!currentAccount || userId === currentAccount.id) return; // Can't view own profile
+        logger(`Opening profile for user ID: ${userId} in guild: ${guildId || 'DM'}`, 'info');
+        const modal = document.getElementById('profile-modal');
+        const blockBtn = document.getElementById('block-user-btn');
+        let user;
+        let member;
+        
+        // 1. Fetch User Data
+        const userRes = await apiRequest(currentAccount.token, `/users/${userId}`);
+        if (!userRes.data) {
+             logger(`Failed to fetch user data for ${userId}`, 'error');
+             return;
+        }
+        user = userRes.data;
+
+        // 2. Fetch Member Data (if in guild)
+        if (guildId) {
+            const memberRes = await apiRequest(currentAccount.token, `/guilds/${guildId}/members/${userId}`);
+            member = memberRes.data;
+        }
+
+        // 3. Render Profile
+        const avatarUrl = getAvatarUrl(user, 128);
+        document.getElementById('profile-avatar').src = avatarUrl;
+        document.getElementById('profile-name').innerText = user.global_name || user.username;
+        document.getElementById('profile-username').innerText = `@${user.username}`;
+        
+        // Status is not reliably available from the API in this way, defaulting to offline/placeholder
+        // Note: For a true status, we'd need to track PRESENCE_UPDATE events via WebSocket.
+        const statusDot = document.getElementById('profile-status-dot');
+        statusDot.className = 'status-dot offline w-5 h-5'; // Default to offline
+        
+        // Member details
+        const memberSince = document.getElementById('profile-member-since');
+        if (member?.joined_at) {
+            memberSince.innerText = new Date(member.joined_at).toLocaleDateString();
+        } else {
+            memberSince.innerText = '情報なし';
+        }
+
+        // 4. Block Button Setup
+        const blockedUsers = getBlockedUsers();
+        const isBlocked = blockedUsers.includes(userId);
+        blockBtn.dataset.userId = userId;
+        blockBtn.dataset.isBlocked = isBlocked;
+        blockBtn.innerText = isBlocked ? 'ユーザーのブロックを解除' : 'ユーザーをブロック';
+        blockBtn.className = isBlocked 
+            ? 'w-full bg-gray-600 hover:bg-gray-700 py-2 mt-4 rounded-md font-bold text-white' 
+            : 'w-full bg-red-600 hover:bg-red-700 py-2 mt-4 rounded-md font-bold text-white';
+        blockBtn.onclick = () => toggleBlockUser(userId);
+
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+
+    function closeProfileModal() {
+        document.getElementById('profile-modal').classList.add('hidden');
+        document.getElementById('profile-modal').classList.remove('flex');
+        logger('Profile modal closed.', 'info');
+    }
+
+    function toggleBlockUser(userId) {
+        let blockedUsers = getBlockedUsers();
+        const blockBtn = document.getElementById('block-user-btn');
+
+        if (blockedUsers.includes(userId)) {
+            // Unblock
+            blockedUsers = blockedUsers.filter(id => id !== userId);
+            blockBtn.innerText = 'ユーザーをブロック';
+            blockBtn.className = 'w-full bg-red-600 hover:bg-red-700 py-2 mt-4 rounded-md font-bold text-white';
+            logger(`User ID ${userId} unblocked.`, 'info');
+        } else {
+            // Block
+            blockedUsers.push(userId);
+            blockBtn.innerText = 'ユーザーのブロックを解除';
+            blockBtn.className = 'w-full bg-gray-600 hover:bg-gray-700 py-2 mt-4 rounded-md font-bold text-white';
+            logger(`User ID ${userId} blocked.`, 'warn');
+        }
+        saveBlockedUsers(blockedUsers);
+        closeProfileModal();
+
+        // Reload current channel to hide/show messages
+        if (currentChannel) selectChannel(currentChannel);
+    }
+    
+    // UI/View functions (no change)
     function updateView(state) {
         const a = document.getElementById('auth-section');
         const m = document.getElementById('main-app');
@@ -945,44 +1219,3 @@
         document.getElementById('back-to-channels-btn').onclick = showSidebarView;
         document.getElementById('message-input').addEventListener('input', handleInput);
         document.getElementById('message-input').addEventListener('keypress', e=>{
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                sendMessage();
-            }
-        }
-        );
-        document.getElementById('message-container').addEventListener('scroll', e=>{
-            if (e.target.scrollTop < 100 && oldestMessageId) loadMoreMessages()
-        }
-        );
-        document.body.addEventListener('paste', e=>{
-            const file = e.clipboardData.files[0];
-            if (file) {
-                e.preventDefault();
-                setAttachment(file);
-            }
-        }
-        );
-        document.getElementById('theme-toggle-btn').addEventListener('click', ()=>{
-            document.documentElement.classList.toggle('dark');
-            localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
-            applyTheme();
-        }
-        );
-        document.getElementById('user-info-panel').onclick = ()=>document.getElementById('account-switcher').classList.toggle('hidden');
-        document.getElementById('add-account-switcher-btn').onclick = ()=>{
-            document.getElementById('account-switcher').classList.add('hidden');
-            showLoginScreen();
-        }
-        ;
-        document.getElementById('cancel-add-account-button').onclick = ()=>{
-            const a = getAccounts();
-            if (a.length > 0) switchAccount(getActiveAccountId() || a[0].id);
-        }
-        ;
-        window.addEventListener('resize', handleResize);
-    }
-    );
-</script>
-    </body>
-</html>
