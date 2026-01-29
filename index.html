@@ -469,8 +469,8 @@
     }
 
     function getAvatarUrl(user, size=64) {
-        if (user.avatar) return `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=${size}`;
-        return `https://cdn.discordapp.com/embed/avatars/${user.discriminator % 5}.png`;
+        if (user.avatar) return `https://yakisoba.cloudfree.jp/avoidcord/avatars/${user.id}/${user.avatar}.png?size=${size}`;
+        return `https://yakisoba.cloudfree.jp/avoidcord/embed/avatars/${user.discriminator % 5}.png`;
     }
     function renderStatusDot(status) {
         const dot = document.createElement('div');
@@ -547,7 +547,7 @@
             el.title = s.name;
             el.onclick = ()=>loadChannels(s, el);
             if (s.icon) {
-                el.innerHTML = `<img src="https://cdn.discordapp.com/icons/${s.id}/${s.icon}.png?size=128" class="object-cover w-full h-full rounded-full">`
+                el.innerHTML = `<img src="https://yakisoba.cloudfree.jp/avoidcord/icons/${s.id}/${s.icon}.png?size=128" class="object-cover w-full h-full rounded-full">`
             } else {
                 el.innerHTML = `<div class="w-full h-full flex items-center justify-center bg-gray-700 text-white font-bold rounded-full">${s.name.replace(/[^\w\s]/gi, '').split(' ').map(w=>w[0]).join('').substring(0, 2)}</div>`
             }
@@ -716,9 +716,9 @@
                 const u = m.mentions.find(mu=>mu.id === id) || m.author.id === id ? m.author : null;
                 return u ? `<span class="mention" onclick="openProfileModal('${u.id}', '${m.guild_id || ''}')">@${u.global_name || u.username}</span>` : '@unknown-user';
             })
-            .replace(/&lt;a?:(\w+):(\d+)&gt;/g, (_,n,i)=>`<img src="https://cdn.discordapp.com/emojis/${i}.webp?size=48&quality=lossless" alt=":${n}:" class="inline h-6 w-6">`);
+            .replace(/&lt;a?:(\w+):(\d+)&gt;/g, (_,n,i)=>`<img src="https://yakisoba.cloudfree.jp/avoidcord/emojis/${i}.webp?size=48&quality=lossless" alt=":${n}:" class="inline h-6 w-6">`);
 
-        if (m.sticker_items) contentHtml += m.sticker_items.map(s=>`<img src="https://media.discordapp.net/stickers/${s.id}.webp?size=160" alt="${s.name}" class="w-32 h-32 mt-2"/>`).join('');
+        if (m.sticker_items) contentHtml += m.sticker_items.map(s=>`<img src="https://yakisoba.cloudfree.jp/avoidcord/stickers/${s.id}.webp?size=160" alt="${s.name}" class="w-32 h-32 mt-2"/>`).join('');
         if (m.attachments?.length > 0) contentHtml += m.attachments.map(a=>{
             if (a.content_type?.startsWith('image')) return `<br><a href="${a.url}" target="_blank"><img src="${a.url}" class="max-w-xs cursor-pointer rounded-lg mt-2" style="display: block;"/></a>`;
             if (a.content_type?.startsWith('video')) return `<br><video src="${a.url}" controls playsinline muted class="max-w-xs rounded-lg mt-2"></video>`;
