@@ -915,6 +915,26 @@
         if (!currentAccount || !currentAccount.token) return;
         if (ws) ws.close();
         ws = new WebSocket('wss://gateway.discord.gg/?v=10&encoding=json');
+        let lastMessageId = null;
+
+async function pollMessages() {
+    try {
+        const res = await fetch("https://api.avoidcord.com/messages?limit=50");
+        const data = await res.json();
+        if (!data || !data.messages) return;
+
+        for (const msg of data.messages.reverse()) {
+            if (msg.id === lastMessageId) continue;
+            renderMessage(msg);
+            lastMessageId = msg.id;
+        }
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+setInterval(pollMessages, 1000);
+
         
         ws.onopen = () => logger('WebSocket connected.', 'success');
         ws.onmessage = e=>{
