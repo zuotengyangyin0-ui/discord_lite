@@ -911,76 +911,49 @@
         logger('Attachment cancelled.', 'info');
     }
 
-    function connectWS() {
-        if (!currentAccount || !currentAccount.token) return;
-        if (ws) ws.close();
-        ws = new WebSocket('wss://gateway.discord.gg/?v=10&encoding=json');
-        let lastMessageId = null;
+  
 
 
 let lastMessageId = null;
 
+let lastMessageId = null;
+let messagePollTimer = null;
+
 async function pollMessages() {
-    try {
-        const url = lastMessageId
-            ? `https://yakisoba.cloudfree.jp/avoidcord/channels/${channelId}/messages?after=${lastMessageId}`
-            : `https://yakisoba.cloudfree.jp/avoidcord/channels/${channelId}/messages?limit=50`;
+    if (!currentAccount || !currentChannel) return;
 
-        const res = await fetch(url, {
-            headers: {
-                "Authorization": `${token}`, // ← Discordと共通
-                "Content-Type": "application/json"
-            }
-        });
+    const url = lastMessageId
+        ? `https://yakisoba.cloudfree.jp/avoidcord/channels/${currentChannel.id}/messages?after=${lastMessageId}`
+        : `https://yakisoba.cloudfree.jp/avoidcord/channels/${currentChannel.id}/messages?limit=20`;
 
-        if (!res.ok) {
-            console.error("HTTP error", res.status);
-            return;
+    const res = await fetch(url, {
+        headers: {
+            // Botトークンなら "Bot " を付ける。すでに付いてるならそのまま
+            "Authorization": currentAccount.token.startsWith("Bot ")
+                ? currentAccount.token
+                : `Bot ${currentAccount.token}`,
+            "Content-Type": "application/json"
         }
+    });
 
-        const messages = await res.json();
-        if (!Array.isArray(messages)) return;
+    if (!res.ok) {
+        console.error("pollMessages HTTP error:", res.status);
+        return;
+    }
 
-        for (const msg of messages.reverse()) {
-            renderMessage(msg);
-            lastMessageId = msg.id;
-        }
-    } catch (e) {
-        console.error(e);
+    const data = await res.json();
+    if (!Array.isArray(data)) return;
+
+    for (const msg of data.reverse()) {
+        if (msg.id === lastMessageId) continue;
+        renderMessage(msg);
+        lastMessageId = msg.id;
     }
 }
 
-setInterval(pollMessages, 1000);
 
         
-        ws.onopen = () => logger('WebSocket connected.', 'success');
-        ws.onmessage = e=>{
-            const d = JSON.parse(e.data);
-            if (d.s) lastSequence = d.s;
-            // logger(`WS Event: OP=${d.op}, T=${d.t}`, 'debug');
-
-            if (d.op === 10) {
-                if (heartbeatInterval) clearInterval(heartbeatInterval);
-                heartbeatInterval = setInterval(()=>ws.send(JSON.stringify({
-                    op: 1,
-                    d: lastSequence
-                })), d.d.heartbeat_interval);
-                ws.send(JSON.stringify({
-                    op: 2,
-                    d: {
-                        token: currentAccount.token,
-                        properties: {
-                            $os: "windows",
-                            $browser: "chrome",
-                            $device: ""
-                        },
-                        presence: {
-                            status: getStatus(), // Set initial status
-                            since: 0,
-                            afk: getStatus() === 'idle'
-                        }
-                    }
-                }));
+        
                 logger('Received Hello, sent Identify.', 'info');
             } else if (d.t === 'READY') {
                 logger('Received READY event.', 'info');
