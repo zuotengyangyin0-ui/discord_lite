@@ -919,7 +919,7 @@
 
 async function pollMessages() {
     try {
-        const res = await fetch("https://yakisoba.cloudfree.jp/avoidcord/messages?limit=50");
+        const res = await fetch("https://yakisoba.cloudfree.jp/avoidcord/channels/{channel_id}/messages");
         const data = await res.json();
         if (!data || !data.messages) return;
 
