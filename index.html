@@ -917,14 +917,31 @@
         ws = new WebSocket('wss://gateway.discord.gg/?v=10&encoding=json');
         let lastMessageId = null;
 
+
+let lastMessageId = null;
+
 async function pollMessages() {
     try {
-        const res = await fetch("https://yakisoba.cloudfree.jp/avoidcord/channels/{channel_id}/messages");
-        const data = await res.json();
-        if (!data || !data.messages) return;
+        const url = lastMessageId
+            ? `https://yakisoba.cloudfree.jp/avoidcord/channels/${channelId}/messages?after=${lastMessageId}`
+            : `https://yakisoba.cloudfree.jp/avoidcord/channels/${channelId}/messages?limit=50`;
 
-        for (const msg of data.messages.reverse()) {
-            if (msg.id === lastMessageId) continue;
+        const res = await fetch(url, {
+            headers: {
+                "Authorization": `${token}`, // ← Discordと共通
+                "Content-Type": "application/json"
+            }
+        });
+
+        if (!res.ok) {
+            console.error("HTTP error", res.status);
+            return;
+        }
+
+        const messages = await res.json();
+        if (!Array.isArray(messages)) return;
+
+        for (const msg of messages.reverse()) {
             renderMessage(msg);
             lastMessageId = msg.id;
         }
