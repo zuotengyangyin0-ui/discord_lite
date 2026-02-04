@@ -3,7 +3,7 @@
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Discord Lite</title>
+        <title>avoidcord</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
             tailwind.config = {
@@ -301,7 +301,7 @@
         </div>
 <script>
 const BASE_URL = 'https://yakisoba.cloudfree.jp/avoidcord';
-const API_BASE = `${BASE_URL}`;
+const API_BASE = `${BASE_URL}/`;
 const CDN_BASE = BASE_URL;
 
 let currentAccount = null;
@@ -319,7 +319,6 @@ let messageStore = {};
 let editedMessages = {};
 let pollingInterval = null;
 
-// 設定（localStorageから読み込み）
 const plugins = JSON.parse(localStorage.getItem('plugins')) || {
     showMeYourName: false,
     sendSeconds: false,
@@ -329,22 +328,18 @@ const plugins = JSON.parse(localStorage.getItem('plugins')) || {
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
-    // テーマ初期化
     if (localStorage.theme === 'dark' || (!localStorage.theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
         document.documentElement.classList.add('dark');
     } else {
         document.documentElement.classList.remove('dark');
     }
 
-    // イベントリスナーの登録
     const addAccBtn = document.getElementById('add-account-button');
     if(addAccBtn) addAccBtn.onclick = () => addAccount(document.getElementById('token-input').value);
     
     const cancelAccBtn = document.getElementById('cancel-add-account-button');
     if(cancelAccBtn) cancelAccBtn.onclick = () => {
-        if(getAccounts().length > 0) {
-            updateView('app');
-        }
+        if(getAccounts().length > 0) updateView('app');
     };
 
     const dmIcon = document.getElementById('dm-icon');
@@ -354,11 +349,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     if(themeBtn) themeBtn.onclick = toggleTheme;
 
     const addSwitcherBtn = document.getElementById('add-account-switcher-btn');
-    if(addSwitcherBtn) addSwitcherBtn.onclick = () => {
-        showLoginScreen();
-    };
+    if(addSwitcherBtn) addSwitcherBtn.onclick = () => showLoginScreen();
 
-    // メッセージ送信関連
     const sendBtn = document.getElementById('send-button');
     if(sendBtn) sendBtn.onclick = sendMessage;
 
@@ -382,7 +374,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const backBtn = document.getElementById('back-to-channels-btn');
     if(backBtn) backBtn.onclick = showSidebarView;
 
-    // 入力欄の制御
     const input = document.getElementById('message-input');
     if(input) {
         input.oninput = handleInput;
@@ -392,7 +383,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 sendMessage();
             }
         };
-        // 矢印キーで編集
         input.onkeydown = (e) => {
             if (e.key === 'ArrowUp' && input.value === '') {
                 e.preventDefault();
@@ -407,7 +397,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
     }
 
-    // ユーザーパネルクリックでアカウントスイッチャー表示
     const userInfoPanel = document.getElementById('user-info-panel');
     if(userInfoPanel) userInfoPanel.onclick = (e) => {
         e.stopPropagation();
@@ -415,7 +404,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         if(switcher) switcher.classList.toggle('hidden');
     };
 
-    // 外側クリックで閉じる処理
     window.addEventListener('click', () => {
         const switcher = document.getElementById('account-switcher');
         if(switcher) switcher.classList.add('hidden');
@@ -424,11 +412,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         if(statusPicker) statusPicker.classList.add('hidden');
     });
 
-    // スクロール読み込み
     const msgContainer = document.getElementById('message-container');
     if(msgContainer) msgContainer.addEventListener('scroll', loadMoreMessages);
 
-    // アカウント初期化
     const accounts = getAccounts();
     const activeId = getActiveAccountId();
 
@@ -439,7 +425,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-// --- ユーティリティ ---
 const getAccounts = () => JSON.parse(localStorage.getItem('accounts')) || [];
 const saveAccounts = a => localStorage.setItem('accounts', JSON.stringify(a));
 const getActiveAccountId = () => localStorage.getItem('activeAccountId');
@@ -455,7 +440,6 @@ function toggleTheme() {
     }
 }
 
-// --- API通信 ---
 async function apiRequest(token, path, method = 'GET', body = null, isFormData = false) {
     const opts = {
         method,
@@ -483,7 +467,6 @@ async function apiRequest(token, path, method = 'GET', body = null, isFormData =
     }
 }
 
-// --- アカウント管理 ---
 async function addAccount(token) {
     const spinner = document.getElementById('login-spinner');
     const errEl = document.getElementById('login-error');
@@ -531,7 +514,6 @@ function switchAccount(id) {
     loadGuilds();
 }
 
-// 修正箇所：HTML構造を動的に生成するように変更
 function renderCurrentUserPanel() {
     if (!currentAccount) return;
     const panel = document.getElementById('user-info-panel');
@@ -634,7 +616,6 @@ function cleanupState() {
     cancelReply();
 }
 
-// --- サイドバー・ギルド ---
 async function loadGuilds() {
     if (!currentAccount) return;
     const res = await apiRequest(currentAccount.token, '/users/@me/guilds');
@@ -761,7 +742,6 @@ function createChannelItem(c) {
     return div;
 }
 
-// --- チャット機能 ---
 async function selectChannel(channel) {
     if (pollingInterval) clearInterval(pollingInterval);
     currentChannel = channel;
@@ -890,8 +870,8 @@ function createMessageElement(m, isGrouped) {
             <button class="${btnClass}" onclick="startEdit('${m.id}')">
                 <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
             </button>
-            <button class="${btnClass} text-red-500 hover:text-red-600" onclick="deleteMessage('${m.id}')">
-                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+            <button class="${btnClass}" onclick="deleteMessage('${m.id}')">
+                <svg class="w-4 h-4 text-red-500" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
             </button>
         `;
     }
@@ -949,11 +929,9 @@ function createMessageElement(m, isGrouped) {
     return el;
 }
 
-// 修正箇所：メッセージ画像のURLをavoidcord経由に書き換え
 function renderAttachments(atts) {
     if (!atts || atts.length === 0) return '';
     return atts.map(a => {
-        // cdn.discordapp.com を yakisoba.cloudfree.jp/avoidcord に置換
         const src = a.url.replace(/^https?:\/\/cdn\.discordapp\.com/, CDN_BASE);
         
         if (a.content_type && a.content_type.startsWith('image/')) {
@@ -977,34 +955,8 @@ function parseMarkdown(text) {
         .replace(/`(.*?)`/g, '<code class="bg-gray-200 dark:bg-gray-700 px-1 rounded font-mono text-sm">$1</code>');
         
     html = html.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" class="text-blue-500 hover:underline">$1</a>');
-    
     html = html.replace(/&lt;@!?(\d+)&gt;/g, '<span class="bg-indigo-500/20 text-indigo-500 px-1 rounded font-medium cursor-pointer">@$1</span>');
-    
     return html;
-}
-
-// --- メッセージ操作 ---
-function handleFiles(files) {
-    for (const f of files) {
-        if (attachedFiles.length < 5) attachedFiles.push(f);
-    }
-    renderAttachmentList();
-}
-
-function renderAttachmentList() {
-    const previewBar = document.getElementById('attachment-preview-bar');
-    const nameEl = document.getElementById('attachment-preview-name');
-    
-    if(previewBar && nameEl) {
-        if (attachedFiles.length > 0) {
-            previewBar.classList.remove('hidden');
-            previewBar.classList.add('flex');
-            nameEl.innerText = `${attachedFiles.length} file(s): ${attachedFiles.map(f=>f.name).join(', ')}`;
-        } else {
-            previewBar.classList.add('hidden');
-            previewBar.classList.remove('flex');
-        }
-    }
 }
 
 async function sendMessage() {
@@ -1014,22 +966,36 @@ async function sendMessage() {
     
     if (!content && attachedFiles.length === 0) return;
     
+    // UIリセット
     input.value = '';
     const filesToSend = [...attachedFiles];
     attachedFiles = [];
     renderAttachmentList();
+    
+    const currentReply = replyingTo;
     cancelReply();
 
-    const body = new FormData();
     const payload = { content: content };
-    if (replyingTo) payload.message_reference = { message_id: replyingTo.messageId };
-    
-    body.append('payload_json', JSON.stringify(payload));
-    filesToSend.forEach((f, i) => body.append(`files[${i}]`, f));
+    if (currentReply) payload.message_reference = { message_id: currentReply.messageId };
 
-    await apiRequest(currentAccount.token, `/channels/${currentChannel.id}/messages`, 'POST', body, true);
-    
-    setTimeout(startPolling, 200);
+    let res;
+    if (filesToSend.length === 0) {
+        // 通常のJSON送信
+        res = await apiRequest(currentAccount.token, `/channels/${currentChannel.id}/messages`, 'POST', payload);
+    } else {
+        // ファイル添付あり (FormData)
+        const body = new FormData();
+        body.append('payload_json', JSON.stringify(payload));
+        filesToSend.forEach((f, i) => body.append(`files[${i}]`, f));
+        res = await apiRequest(currentAccount.token, `/channels/${currentChannel.id}/messages`, 'POST', body, true);
+    }
+
+    if (res.error) {
+        alert('メッセージ送信に失敗しました: ' + (res.error.message || '不明なエラー'));
+        input.value = content; 
+    } else {
+        setTimeout(startPolling, 200);
+    }
 }
 
 function startEdit(msgId) {
