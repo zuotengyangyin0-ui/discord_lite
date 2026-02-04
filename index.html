@@ -301,7 +301,7 @@
         </div>
 <script>
 const BASE_URL = 'https://yakisoba.cloudfree.jp/avoidcord';
-const API_BASE = BASE_URL; // プロキシのルートをAPIベースとして設定
+const API_BASE = BASE_URL; // プロキシのルートを使用
 const CDN_BASE = BASE_URL;
 
 let currentAccount = null;
@@ -319,6 +319,7 @@ let messageStore = {};
 let editedMessages = {};
 let pollingInterval = null;
 
+// 設定
 const plugins = JSON.parse(localStorage.getItem('plugins')) || {
     showMeYourName: false,
     sendSeconds: false,
@@ -328,52 +329,32 @@ const plugins = JSON.parse(localStorage.getItem('plugins')) || {
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
+    // テーマ設定
     if (localStorage.theme === 'dark' || (!localStorage.theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
         document.documentElement.classList.add('dark');
     } else {
         document.documentElement.classList.remove('dark');
     }
 
-    const addAccBtn = document.getElementById('add-account-button');
-    if(addAccBtn) addAccBtn.onclick = () => addAccount(document.getElementById('token-input').value);
-    
-    const cancelAccBtn = document.getElementById('cancel-add-account-button');
-    if(cancelAccBtn) cancelAccBtn.onclick = () => {
-        if(getAccounts().length > 0) updateView('app');
-    };
+    // ボタンイベント登録
+    const setClick = (id, fn) => { const el = document.getElementById(id); if(el) el.onclick = fn; };
 
-    const dmIcon = document.getElementById('dm-icon');
-    if(dmIcon) dmIcon.onclick = loadDms;
+    setClick('add-account-button', () => addAccount(document.getElementById('token-input').value));
+    setClick('cancel-add-account-button', () => { if(getAccounts().length > 0) updateView('app'); });
+    setClick('dm-icon', loadDms);
+    setClick('theme-toggle-btn', toggleTheme);
+    setClick('add-account-switcher-btn', showLoginScreen);
+    setClick('send-button', sendMessage);
+    setClick('attach-button', () => document.getElementById('file-input').click());
+    setClick('cancel-attachment-btn', () => { attachedFiles = []; renderAttachmentList(); });
+    setClick('cancel-reply-btn', cancelReply);
+    setClick('back-to-channels-btn', showSidebarView);
 
-    const themeBtn = document.getElementById('theme-toggle-btn');
-    if(themeBtn) themeBtn.onclick = toggleTheme;
-
-    const addSwitcherBtn = document.getElementById('add-account-switcher-btn');
-    if(addSwitcherBtn) addSwitcherBtn.onclick = () => showLoginScreen();
-
-    const sendBtn = document.getElementById('send-button');
-    if(sendBtn) sendBtn.onclick = sendMessage;
-
-    const attachBtn = document.getElementById('attach-button');
-    if(attachBtn) attachBtn.onclick = () => document.getElementById('file-input').click();
-
+    // ファイル入力
     const fileInput = document.getElementById('file-input');
-    if(fileInput) fileInput.onchange = (e) => {
-        if (e.target.files.length > 0) handleFiles(e.target.files);
-    };
+    if(fileInput) fileInput.onchange = (e) => { if (e.target.files.length > 0) handleFiles(e.target.files); };
 
-    const cancelAttBtn = document.getElementById('cancel-attachment-btn');
-    if(cancelAttBtn) cancelAttBtn.onclick = () => {
-        attachedFiles = [];
-        renderAttachmentList();
-    };
-
-    const cancelReplyBtn = document.getElementById('cancel-reply-btn');
-    if(cancelReplyBtn) cancelReplyBtn.onclick = cancelReply;
-
-    const backBtn = document.getElementById('back-to-channels-btn');
-    if(backBtn) backBtn.onclick = showSidebarView;
-
+    // メッセージ入力欄
     const input = document.getElementById('message-input');
     if(input) {
         input.oninput = handleInput;
@@ -397,26 +378,24 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
     }
 
+    // アカウントスイッチャー
     const userInfoPanel = document.getElementById('user-info-panel');
     if(userInfoPanel) userInfoPanel.onclick = (e) => {
         e.stopPropagation();
-        const switcher = document.getElementById('account-switcher');
-        if(switcher) switcher.classList.toggle('hidden');
+        document.getElementById('account-switcher')?.classList.toggle('hidden');
     };
 
     window.addEventListener('click', () => {
-        const switcher = document.getElementById('account-switcher');
-        if(switcher) switcher.classList.add('hidden');
-        const statusPicker = document.getElementById('status-picker');
-        if(statusPicker) statusPicker.classList.add('hidden');
+        document.getElementById('account-switcher')?.classList.add('hidden');
+        document.getElementById('status-picker')?.classList.add('hidden');
     });
 
-    const msgContainer = document.getElementById('message-container');
-    if(msgContainer) msgContainer.addEventListener('scroll', loadMoreMessages);
+    // スクロール
+    document.getElementById('message-container')?.addEventListener('scroll', loadMoreMessages);
 
+    // 初期化
     const accounts = getAccounts();
     const activeId = getActiveAccountId();
-
     if (accounts.length > 0 && activeId) {
         switchAccount(activeId);
     } else {
@@ -424,6 +403,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
+// --- ユーティリティ ---
 const getAccounts = () => JSON.parse(localStorage.getItem('accounts')) || [];
 const saveAccounts = a => localStorage.setItem('accounts', JSON.stringify(a));
 const getActiveAccountId = () => localStorage.getItem('activeAccountId');
@@ -439,6 +419,7 @@ function toggleTheme() {
     }
 }
 
+// --- API通信 ---
 async function apiRequest(token, path, method = 'GET', body = null, isFormData = false) {
     const opts = {
         method,
@@ -450,7 +431,6 @@ async function apiRequest(token, path, method = 'GET', body = null, isFormData =
     if (body) {
         if (isFormData) {
             opts.body = body;
-            // FormDataの場合、Content-Typeはブラウザが自動設定するため設定しない
         } else {
             opts.body = JSON.stringify(body);
             opts.headers['Content-Type'] = 'application/json';
@@ -467,6 +447,7 @@ async function apiRequest(token, path, method = 'GET', body = null, isFormData =
     }
 }
 
+// --- アカウント ---
 async function addAccount(token) {
     const spinner = document.getElementById('login-spinner');
     const errEl = document.getElementById('login-error');
@@ -634,10 +615,10 @@ function createGuildIcon(g) {
 
 async function loadDms() {
     document.querySelectorAll('.server-icon.active').forEach(e => e.classList.remove('active'));
-    const dmIcon = document.getElementById('dm-icon');
-    if(dmIcon) dmIcon.classList.add('active');
+    document.getElementById('dm-icon')?.classList.add('active');
     const gName = document.getElementById('guild-name');
     if(gName) gName.innerText = 'ダイレクトメッセージ';
+    
     const res = await apiRequest(currentAccount.token, '/users/@me/channels');
     if (res.error) return;
     const list = document.getElementById('channel-list');
@@ -664,16 +645,18 @@ async function loadDms() {
 async function loadChannels(guild, element) {
     document.querySelectorAll('.server-icon.active').forEach(e => e.classList.remove('active'));
     if (element) element.classList.add('active');
-    const gName = document.getElementById('guild-name');
-    if(gName) gName.innerText = guild.name;
+    document.getElementById('guild-name').innerText = guild.name;
+    
     const res = await apiRequest(currentAccount.token, `/guilds/${guild.id}/channels`);
     if (res.error) return;
+    
     const list = document.getElementById('channel-list');
     if(!list) return;
     list.innerHTML = '';
     const channels = res.data;
     const categories = channels.filter(c => c.type === 4).sort((a,b) => a.position - b.position);
     const textChannels = channels.filter(c => c.type === 0 || c.type === 5).sort((a,b) => a.position - b.position);
+    
     textChannels.filter(c => !c.parent_id).forEach(c => list.appendChild(createChannelItem(c)));
     categories.forEach(cat => {
         const catDiv = document.createElement('div');
@@ -705,6 +688,49 @@ function createChannelItem(c) {
     return div;
 }
 
+// 修正：メッセージ送信ロジック（常にpayload_jsonを使用）
+async function sendMessage() {
+    if (!currentChannel) return;
+    const input = document.getElementById('message-input');
+    const content = input.value.trim();
+    
+    if (!content && attachedFiles.length === 0) return;
+    
+    // UIリセット
+    input.value = '';
+    const filesToSend = [...attachedFiles];
+    attachedFiles = [];
+    renderAttachmentList();
+    const currentReply = replyingTo;
+    cancelReply();
+
+    // FormData作成
+    const body = new FormData();
+    
+    // ペイロード構築
+    const payload = { content: content };
+    if (currentReply) {
+        payload.message_reference = { message_id: currentReply.messageId };
+    }
+    
+    // 画像送信が成功しているため、テキストのみでもこの形式（payload_json）に統一する
+    // contentフィールドを別にするのではなく、payload_jsonの中に全て入れる
+    body.append('payload_json', JSON.stringify(payload));
+    
+    // ファイル追加
+    filesToSend.forEach((f, i) => body.append(`files[${i}]`, f));
+
+    // 送信
+    const res = await apiRequest(currentAccount.token, `/channels/${currentChannel.id}/messages`, 'POST', body, true);
+    
+    if (res.error) {
+        alert('送信エラー: ' + (res.error.message || '不明なエラー'));
+        input.value = content; // 失敗時は戻す
+    } else {
+        setTimeout(startPolling, 200);
+    }
+}
+
 async function selectChannel(channel) {
     if (pollingInterval) clearInterval(pollingInterval);
     currentChannel = channel;
@@ -717,17 +743,19 @@ async function selectChannel(channel) {
     const el = document.getElementById(`channel-${channel.id}`);
     if (el) el.classList.add('bg-gray-300', 'dark:bg-gray-600');
     if (window.innerWidth < 768) showChatView();
+    
     let name = channel.name;
     if (!name && channel.recipients) name = channel.recipients[0].global_name || channel.recipients[0].username;
-    const cName = document.getElementById('channel-name-text');
-    if(cName) cName.innerHTML = `<span class="text-gray-400 mr-1">#</span>${name || 'DM'}`;
+    document.getElementById('channel-name-text').innerHTML = `<span class="text-gray-400 mr-1">#</span>${name || 'DM'}`;
+    
     const container = document.getElementById('message-container');
     if(!container) return;
     container.innerHTML = '<div class="flex justify-center items-center h-full"><div class="loader border-t-blue-500 rounded-full border-4 border-gray-200 h-8 w-8"></div></div>';
+    
     const res = await apiRequest(currentAccount.token, `/channels/${channel.id}/messages?limit=50`);
     container.innerHTML = '';
     if (res.error) {
-        container.innerHTML = `<div class="text-center text-red-500 mt-10">メッセージを読み込めませんでした<br>${res.error.message || ''}</div>`;
+        container.innerHTML = `<div class="text-center text-red-500 mt-10">エラー<br>${res.error.message}</div>`;
         return;
     }
     if (res.data.length > 0) {
@@ -777,9 +805,7 @@ async function loadMoreMessages() {
     if (res.data && res.data.length > 0) {
         oldestMessageId = res.data[res.data.length - 1].id;
         const fragment = document.createDocumentFragment();
-        [...res.data].reverse().forEach((m) => {
-             fragment.appendChild(createMessageElement(m, false)); 
-        });
+        [...res.data].reverse().forEach((m) => fragment.appendChild(createMessageElement(m, false)));
         container.prepend(fragment);
         container.scrollTop = container.scrollHeight - beforeScroll;
     }
@@ -911,42 +937,6 @@ function renderAttachmentList() {
     }
 }
 
-// 修正ポイント：テキストのみでもFormDataを強制使用
-async function sendMessage() {
-    if (!currentChannel) return;
-    const input = document.getElementById('message-input');
-    const content = input.value.trim();
-    
-    if (!content && attachedFiles.length === 0) return;
-    
-    input.value = '';
-    const filesToSend = [...attachedFiles];
-    attachedFiles = [];
-    renderAttachmentList();
-    
-    const currentReply = replyingTo;
-    cancelReply();
-
-    // 常にFormDataを使用 (画像送信が成功しているため)
-    const body = new FormData();
-    body.append('payload_json', JSON.stringify({
-        content: content,
-        message_reference: currentReply ? { message_id: currentReply.messageId } : undefined
-    }));
-    
-    filesToSend.forEach((f, i) => body.append(`files[${i}]`, f));
-
-    // FormDataフラグ(true)で送信
-    const res = await apiRequest(currentAccount.token, `/channels/${currentChannel.id}/messages`, 'POST', body, true);
-    
-    if (res.error) {
-        alert('送信エラー: ' + JSON.stringify(res.error));
-        input.value = content; // エラー時は入力を戻す
-    } else {
-        setTimeout(startPolling, 200);
-    }
-}
-
 function startEdit(msgId) {
     const el = document.getElementById(`message-${msgId}`);
     if(!el) return;
@@ -980,23 +970,14 @@ async function deleteMessage(msgId) {
 
 function startReply(m) {
     replyingTo = { messageId: m.id };
-    const bar = document.getElementById('reply-bar');
-    if(bar) {
-        bar.classList.remove('hidden');
-        bar.classList.add('flex');
-    }
-    const rUser = document.getElementById('reply-username');
-    if(rUser) rUser.innerText = m.author.global_name || m.author.username;
+    document.getElementById('reply-bar')?.classList.replace('hidden', 'flex');
+    document.getElementById('reply-username').innerText = m.author.global_name || m.author.username;
     document.getElementById('message-input').focus();
 }
 
 function cancelReply() {
     replyingTo = null;
-    const bar = document.getElementById('reply-bar');
-    if(bar) {
-        bar.classList.add('hidden');
-        bar.classList.remove('flex');
-    }
+    document.getElementById('reply-bar')?.classList.replace('flex', 'hidden');
 }
 
 function handleInput() {
@@ -1019,8 +1000,7 @@ function handleInput() {
 function handleResize() {
     if (window.innerWidth >= 768) {
         showChatView();
-        const sidebar = document.getElementById('sidebar-view');
-        if(sidebar) sidebar.classList.remove('hidden');
+        document.getElementById('sidebar-view')?.classList.remove('hidden');
     } else if (currentChannel) {
         showChatView();
     } else {
@@ -1029,52 +1009,36 @@ function handleResize() {
 }
 
 function showSidebarView() {
-    const sidebar = document.getElementById('sidebar-view');
-    const chat = document.getElementById('chat-section');
-    if(sidebar) sidebar.classList.remove('hidden');
-    if(chat) chat.classList.add('hidden');
+    document.getElementById('sidebar-view').classList.remove('hidden');
+    document.getElementById('chat-section').classList.add('hidden');
 }
 
 function showChatView() {
-    const sidebar = document.getElementById('sidebar-view');
-    const chat = document.getElementById('chat-section');
-    if(sidebar) sidebar.classList.add('hidden');
-    if(chat) chat.classList.remove('hidden');
+    document.getElementById('sidebar-view').classList.add('hidden');
+    document.getElementById('chat-section').classList.remove('hidden');
 }
 
 window.updateStatus = (status) => {
     alert(`Status set to ${status} (Visual only in Lite)`);
-    const picker = document.getElementById('status-picker');
-    if(picker) picker.classList.add('hidden');
+    document.getElementById('status-picker')?.classList.add('hidden');
     const dot = document.getElementById('profile-status-dot');
-    if(dot) {
-        dot.className = `status-dot ${status === 'invisible' ? 'offline' : status}`;
-    }
+    if(dot) dot.className = `status-dot ${status === 'invisible' ? 'offline' : status}`;
 };
 
 window.closeProfileModal = () => {
-    const modal = document.getElementById('profile-modal');
-    if(modal) {
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
-    }
+    document.getElementById('profile-modal')?.classList.replace('flex', 'hidden');
 };
 
 window.openProfileModal = async (userId) => {
     const modal = document.getElementById('profile-modal');
     if(!modal) return;
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
+    modal.classList.replace('hidden', 'flex');
     const res = await apiRequest(currentAccount.token, `/users/${userId}`);
     if(res.data) {
         const u = res.data;
-        const pName = document.getElementById('profile-name');
-        if(pName) pName.innerText = u.global_name || u.username;
-        const pUser = document.getElementById('profile-username');
-        if(pUser) pUser.innerText = u.username;
-        const av = u.avatar ? `${CDN_BASE}/avatars/${u.id}/${u.avatar}.png?size=128` : `${CDN_BASE}/embed/avatars/${u.discriminator%5}.png`;
-        const pAv = document.getElementById('profile-avatar');
-        if(pAv) pAv.src = av;
+        document.getElementById('profile-name').innerText = u.global_name || u.username;
+        document.getElementById('profile-username').innerText = u.username;
+        document.getElementById('profile-avatar').src = u.avatar ? `${CDN_BASE}/avatars/${u.id}/${u.avatar}.png?size=128` : `${CDN_BASE}/embed/avatars/${u.discriminator%5}.png`;
     }
 };
 </script>
