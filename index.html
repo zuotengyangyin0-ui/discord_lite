@@ -301,7 +301,7 @@
         </div>
 <script>
 const BASE_URL = 'https://yakisoba.cloudfree.jp/avoidcord';
-const API_BASE = `${BASE_URL}/`;
+const API_BASE = `${BASE_URL}`;
 const CDN_BASE = BASE_URL;
 
 let currentAccount = null;
@@ -543,7 +543,6 @@ function renderCurrentUserPanel() {
         ? `${CDN_BASE}/avatars/${currentAccount.id}/${currentAccount.avatar}.png?size=64` 
         : `${CDN_BASE}/embed/avatars/${currentAccount.discriminator % 5}.png`;
     
-    // パネルの中身を直接書き換える（元のHTMLに中身が無いため）
     panel.innerHTML = `
         <img src="${avatar}" class="w-8 h-8 rounded-full bg-gray-300 object-cover">
         <div class="flex-1 min-w-0">
@@ -552,7 +551,6 @@ function renderCurrentUserPanel() {
         </div>
     `;
 
-    // プロフィールモーダル用
     const modalAvatar = document.getElementById('profile-avatar');
     if(modalAvatar) modalAvatar.src = avatar;
 
@@ -592,7 +590,6 @@ function updateView(viewName) {
         auth.classList.add('flex');
         app.classList.add('hidden');
         app.classList.remove('flex');
-        // キャンセルボタンを表示するかどうか
         const hasAcc = getAccounts().length > 0;
         const cancelBtn = document.getElementById('cancel-add-account-button');
         if(cancelBtn) {
@@ -723,11 +720,9 @@ async function loadChannels(guild, element) {
     list.innerHTML = '';
     
     const channels = res.data;
-    // カテゴリとチャンネルの整理
     const categories = channels.filter(c => c.type === 4).sort((a,b) => a.position - b.position);
     const textChannels = channels.filter(c => c.type === 0 || c.type === 5).sort((a,b) => a.position - b.position);
     
-    // カテゴリなし
     textChannels.filter(c => !c.parent_id).forEach(c => list.appendChild(createChannelItem(c)));
 
     categories.forEach(cat => {
@@ -774,26 +769,21 @@ async function selectChannel(channel) {
     isLoadingMore = false;
     cancelReply();
     
-    // 添付ファイルリセット
     attachedFiles = [];
     renderAttachmentList();
     
-    // UI更新
     document.querySelectorAll('.channel-item').forEach(e => e.classList.remove('bg-gray-300', 'dark:bg-gray-600'));
     const el = document.getElementById(`channel-${channel.id}`);
     if (el) el.classList.add('bg-gray-300', 'dark:bg-gray-600');
     
-    // モバイル用ビュー切り替え
     if (window.innerWidth < 768) showChatView();
     
-    // ヘッダー更新
     let name = channel.name;
     if (!name && channel.recipients) name = channel.recipients[0].global_name || channel.recipients[0].username;
     
     const cName = document.getElementById('channel-name-text');
     if(cName) cName.innerHTML = `<span class="text-gray-400 mr-1">#</span>${name || 'DM'}`;
     
-    // メッセージ取得
     const container = document.getElementById('message-container');
     if(!container) return;
     
@@ -810,7 +800,6 @@ async function selectChannel(channel) {
     if (res.data.length > 0) {
         oldestMessageId = res.data[res.data.length - 1].id;
         const fragment = document.createDocumentFragment();
-        // 古い順に表示
         [...res.data].reverse().forEach((m, i, arr) => {
             const prev = i > 0 ? arr[i-1] : null;
             const isGrouped = prev && prev.author.id === m.author.id && !m.referenced_message && (new Date(m.timestamp) - new Date(prev.timestamp) < 5 * 60 * 1000);
@@ -831,7 +820,7 @@ function startPolling() {
 
         const lastMsg = container.lastElementChild;
         let afterId = lastMsg ? lastMsg.id.replace('message-', '') : null;
-        if (!afterId && oldestMessageId) afterId = oldestMessageId; // フォールバック
+        if (!afterId && oldestMessageId) afterId = oldestMessageId; 
         
         if (!afterId) return;
 
@@ -851,7 +840,6 @@ function startPolling() {
     }, 1000);
 }
 
-// 過去ログ読み込み
 async function loadMoreMessages() {
     if (isLoadingMore || !oldestMessageId || !currentChannel) return;
     const container = document.getElementById('message-container');
@@ -865,8 +853,6 @@ async function loadMoreMessages() {
         oldestMessageId = res.data[res.data.length - 1].id;
         const fragment = document.createDocumentFragment();
         
-        // 新しい順に来るので、逆順にしてprepend
-        // グループ化ロジックは簡易的に
         [...res.data].reverse().forEach((m) => {
              fragment.appendChild(createMessageElement(m, false)); 
         });
@@ -888,7 +874,6 @@ function createMessageElement(m, isGrouped) {
         el.style.borderLeft = "2px solid #faa61a";
     }
 
-    // ツールバー
     const toolbar = document.createElement('div');
     toolbar.className = 'message-toolbar absolute -top-4 right-4 bg-white dark:bg-gray-800 shadow rounded border border-gray-200 dark:border-gray-700 p-1 hidden group-hover:flex gap-1 z-10';
     
@@ -912,7 +897,6 @@ function createMessageElement(m, isGrouped) {
     }
     el.appendChild(toolbar);
 
-    // 返信参照
     if (m.referenced_message && !isGrouped) {
         const ref = m.referenced_message;
         const refName = ref.author ? (ref.author.global_name || ref.author.username) : "Unknown";
@@ -958,7 +942,6 @@ function createMessageElement(m, isGrouped) {
         `;
     }
 
-    // 元のコンテンツ保存（編集用）
     const bodyEl = contentWrapper.querySelector('.message-body');
     if(bodyEl) bodyEl.dataset.original = m.content;
 
@@ -966,13 +949,17 @@ function createMessageElement(m, isGrouped) {
     return el;
 }
 
+// 修正箇所：メッセージ画像のURLをavoidcord経由に書き換え
 function renderAttachments(atts) {
     if (!atts || atts.length === 0) return '';
     return atts.map(a => {
+        // cdn.discordapp.com を yakisoba.cloudfree.jp/avoidcord に置換
+        const src = a.url.replace(/^https?:\/\/cdn\.discordapp\.com/, CDN_BASE);
+        
         if (a.content_type && a.content_type.startsWith('image/')) {
-            return `<a href="${a.url}" target="_blank" class="block mt-2"><img src="${a.url}" class="max-w-sm max-h-80 rounded-lg"></a>`;
+            return `<a href="${src}" target="_blank" class="block mt-2"><img src="${src}" class="max-w-sm max-h-80 rounded-lg"></a>`;
         }
-        return `<div class="mt-2"><a href="${a.url}" target="_blank" class="text-blue-500 hover:underline">📎 ${a.filename}</a></div>`;
+        return `<div class="mt-2"><a href="${src}" target="_blank" class="text-blue-500 hover:underline">📎 ${a.filename}</a></div>`;
     }).join('');
 }
 
@@ -989,10 +976,8 @@ function parseMarkdown(text) {
         .replace(/~~(.*?)~~/g, '<s>$1</s>')
         .replace(/`(.*?)`/g, '<code class="bg-gray-200 dark:bg-gray-700 px-1 rounded font-mono text-sm">$1</code>');
         
-    // リンク
     html = html.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" class="text-blue-500 hover:underline">$1</a>');
     
-    // メンション (簡易)
     html = html.replace(/&lt;@!?(\d+)&gt;/g, '<span class="bg-indigo-500/20 text-indigo-500 px-1 rounded font-medium cursor-pointer">@$1</span>');
     
     return html;
@@ -1010,8 +995,6 @@ function renderAttachmentList() {
     const previewBar = document.getElementById('attachment-preview-bar');
     const nameEl = document.getElementById('attachment-preview-name');
     
-    // ユーザーHTMLに添付ファイルプレビュー用のバーがなかった場合のフォールバック（チャットエリア下部など）
-    // 提供HTMLには `attachment-preview-bar` がある
     if(previewBar && nameEl) {
         if (attachedFiles.length > 0) {
             previewBar.classList.remove('hidden');
@@ -1031,14 +1014,12 @@ async function sendMessage() {
     
     if (!content && attachedFiles.length === 0) return;
     
-    // 送信UIリセット
     input.value = '';
     const filesToSend = [...attachedFiles];
     attachedFiles = [];
     renderAttachmentList();
     cancelReply();
 
-    // フォームデータ作成
     const body = new FormData();
     const payload = { content: content };
     if (replyingTo) payload.message_reference = { message_id: replyingTo.messageId };
@@ -1046,10 +1027,8 @@ async function sendMessage() {
     body.append('payload_json', JSON.stringify(payload));
     filesToSend.forEach((f, i) => body.append(`files[${i}]`, f));
 
-    // 送信 (結果はポーリングで拾うので待たなくて良いが、エラー処理は簡易的に)
     await apiRequest(currentAccount.token, `/channels/${currentChannel.id}/messages`, 'POST', body, true);
     
-    // ポーリングを即時発火させて反応を良くする
     setTimeout(startPolling, 200);
 }
 
@@ -1072,12 +1051,11 @@ function startEdit(msgId) {
     input.onkeydown = async (e) => {
         if (e.key === 'Enter') {
             await apiRequest(currentAccount.token, `/channels/${currentChannel.id}/messages/${msgId}`, 'PATCH', {content: input.value});
-            // 簡易的にDOM戻す（本来はAPIレスポンス待つべき）
             body.innerText = input.value; 
             body.dataset.original = input.value;
         } else if (e.key === 'Escape') {
-            body.innerText = parseMarkdown(original); // HTML再パース
-            body.innerHTML = parseMarkdown(original); // 安全策
+            body.innerText = parseMarkdown(original); 
+            body.innerHTML = parseMarkdown(original); 
         }
     };
 }
@@ -1125,7 +1103,6 @@ function handleInput() {
         }
     }
     
-    // 高さ自動調整
     input.style.height = 'auto';
     input.style.height = input.scrollHeight + 'px';
 }
@@ -1156,7 +1133,6 @@ function showChatView() {
     if(chat) chat.classList.remove('hidden');
 }
 
-// Global scope functions
 window.updateStatus = (status) => {
     alert(`Status set to ${status} (Visual only in Lite)`);
     const picker = document.getElementById('status-picker');
@@ -1183,7 +1159,6 @@ window.openProfileModal = async (userId) => {
     modal.classList.remove('hidden');
     modal.classList.add('flex');
     
-    // Fetch user profile (lite fetch)
     const res = await apiRequest(currentAccount.token, `/users/${userId}`);
     if(res.data) {
         const u = res.data;
