@@ -301,8 +301,7 @@
         </div>
 <script>
 const BASE_URL = 'https://yakisoba.cloudfree.jp/avoidcord';
-// スクリーンショットのURL構成に基づき、/api/v10 を除外（プロキシ側で解決されているか、このパスが正解のため）
-const API_BASE = BASE_URL;
+const API_BASE = BASE_URL; // プロキシのルートをAPIベースとして設定
 const CDN_BASE = BASE_URL;
 
 let currentAccount = null;
@@ -451,7 +450,7 @@ async function apiRequest(token, path, method = 'GET', body = null, isFormData =
     if (body) {
         if (isFormData) {
             opts.body = body;
-            // FormDataの場合、Content-Typeヘッダーはブラウザが自動設定するため指定しない
+            // FormDataの場合、Content-Typeはブラウザが自動設定するため設定しない
         } else {
             opts.body = JSON.stringify(body);
             opts.headers['Content-Type'] = 'application/json';
@@ -480,7 +479,6 @@ async function addAccount(token) {
     if(btnText) btnText.innerText = "";
     if(errEl) errEl.innerText = "";
 
-    // API_BASEの変更に伴い、フルパスでの確認が必要な場合はパス調整
     const result = await apiRequest(token, '/users/@me');
     
     if(spinner) spinner.classList.add('hidden');
@@ -913,7 +911,7 @@ function renderAttachmentList() {
     }
 }
 
-// 修正箇所：FormDataでcontentを直接送るように変更
+// 修正ポイント：テキストのみでもFormDataを強制使用
 async function sendMessage() {
     if (!currentChannel) return;
     const input = document.getElementById('message-input');
@@ -929,23 +927,24 @@ async function sendMessage() {
     const currentReply = replyingTo;
     cancelReply();
 
+    // 常にFormDataを使用 (画像送信が成功しているため)
     const body = new FormData();
-    // contentを明示的にフィールドとして追加
-    body.append('content', content);
-    
-    // リプライがある場合のみpayload_jsonを使用
-    if (currentReply) {
-        body.append('payload_json', JSON.stringify({
-            message_reference: { message_id: currentReply.messageId }
-        }));
-    }
+    body.append('payload_json', JSON.stringify({
+        content: content,
+        message_reference: currentReply ? { message_id: currentReply.messageId } : undefined
+    }));
     
     filesToSend.forEach((f, i) => body.append(`files[${i}]`, f));
 
-    // FormDataを使用（第4引数 true）
-    await apiRequest(currentAccount.token, `/channels/${currentChannel.id}/messages`, 'POST', body, true);
+    // FormDataフラグ(true)で送信
+    const res = await apiRequest(currentAccount.token, `/channels/${currentChannel.id}/messages`, 'POST', body, true);
     
-    setTimeout(startPolling, 200);
+    if (res.error) {
+        alert('送信エラー: ' + JSON.stringify(res.error));
+        input.value = content; // エラー時は入力を戻す
+    } else {
+        setTimeout(startPolling, 200);
+    }
 }
 
 function startEdit(msgId) {
