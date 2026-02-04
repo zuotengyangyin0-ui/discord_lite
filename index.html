@@ -301,7 +301,7 @@
         </div>
 <script>
 const BASE_URL = 'https://yakisoba.cloudfree.jp/avoidcord';
-const API_BASE = BASE_URL; 
+const API_BASE = BASE_URL; // プロキシのルートURL
 const CDN_BASE = BASE_URL;
 
 let currentAccount = null;
@@ -334,6 +334,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.documentElement.classList.remove('dark');
     }
 
+    // イベント設定
     const setClick = (id, fn) => { const el = document.getElementById(id); if(el) el.onclick = fn; };
 
     setClick('add-account-button', () => addAccount(document.getElementById('token-input').value));
@@ -410,22 +411,46 @@ function toggleTheme() {
     }
 }
 
+// ノンス生成（公式クライアント同様）
+function generateNonce() {
+    return (BigInt(Date.now() - 1420070400000) * 4194304n).toString();
+}
+
 async function apiRequest(token, path, method = 'GET', body = null, isFormData = false) {
     const opts = {
         method,
         headers: {
             'Authorization': token,
-            'X-Super-Properties': btoa(JSON.stringify({ os: "Windows", browser: "Chrome", device: "", system_locale: "ja", client_build_number: 262355 }))
+            // X-Super-Properties は公式クライアントのものを模倣
+            'X-Super-Properties': btoa(JSON.stringify({
+                os: "Windows",
+                browser: "Chrome",
+                device: "",
+                system_locale: "ja",
+                browser_user_agent: navigator.userAgent,
+                browser_version: "120.0.0.0",
+                os_version: "10",
+                referrer: "",
+                referring_domain: "",
+                referrer_current: "",
+                referring_domain_current: "",
+                release_channel: "stable",
+                client_build_number: 262355,
+                client_event_source: null
+            }))
         }
     };
+    
     if (body) {
         if (isFormData) {
             opts.body = body;
+            // FormDataの場合はContent-Typeを自動設定させる
         } else {
             opts.body = JSON.stringify(body);
             opts.headers['Content-Type'] = 'application/json';
         }
     }
+    
     try {
         const r = await fetch(`${API_BASE}${path}`, opts);
         if (r.status === 401) return { error: { message: "Unauthorized" }, status: 401 };
@@ -677,7 +702,7 @@ function createChannelItem(c) {
     return div;
 }
 
-// 修正：メッセージ送信ロジック（シンプルcontent優先）
+// 修正：公式クライアントと同じ分岐ロジック（JSON or FormData）
 async function sendMessage() {
     if (!currentChannel) return;
     const input = document.getElementById('message-input');
@@ -689,27 +714,32 @@ async function sendMessage() {
     const filesToSend = [...attachedFiles];
     attachedFiles = [];
     renderAttachmentList();
-    
     const currentReply = replyingTo;
     cancelReply();
 
-    const body = new FormData();
+    // 共通ペイロード
+    const payload = {
+        content: content,
+        tts: false,
+        nonce: generateNonce(), // nonceを追加
+        flags: 0
+    };
     
-    // 50006エラー対策：payload_jsonを使わず、直接contentフィールドを使う（リプライがない場合）
-    if (!currentReply) {
-        body.append('content', content);
-    } else {
-        // リプライがある場合は構造が必要なのでpayload_jsonを使う
-        body.append('payload_json', JSON.stringify({
-            content: content,
-            message_reference: { message_id: currentReply.messageId }
-        }));
+    if (currentReply) {
+        payload.message_reference = { message_id: currentReply.messageId, fail_if_not_exists: false };
     }
-    
-    filesToSend.forEach((f, i) => body.append(`files[${i}]`, f));
 
-    // 全てFormDataとして送信
-    const res = await apiRequest(currentAccount.token, `/channels/${currentChannel.id}/messages`, 'POST', body, true);
+    let res;
+    if (filesToSend.length === 0) {
+        // テキストのみ：application/json
+        res = await apiRequest(currentAccount.token, `/channels/${currentChannel.id}/messages`, 'POST', payload);
+    } else {
+        // ファイルあり：multipart/form-data
+        const body = new FormData();
+        body.append('payload_json', JSON.stringify(payload));
+        filesToSend.forEach((f, i) => body.append(`files[${i}]`, f));
+        res = await apiRequest(currentAccount.token, `/channels/${currentChannel.id}/messages`, 'POST', body, true);
+    }
     
     if (res.error) {
         alert('送信エラー: ' + (res.error.message || JSON.stringify(res.error)));
@@ -822,7 +852,7 @@ function createMessageElement(m, isGrouped) {
             <button class="${btnClass}" onclick="startEdit('${m.id}')">
                 <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
             </button>
-            <button class="${btnClass}" text-red-500 hover:text-red-600" onclick="deleteMessage('${m.id}')">
+            <button class="${btnClass} text-red-500 hover:text-red-600" onclick="deleteMessage('${m.id}')">
                 <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
             </button>
         `;
