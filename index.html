@@ -301,7 +301,7 @@
         </div>
 <script>
 const BASE_URL = 'https://yakisoba.cloudfree.jp/avoidcord';
-const API_BASE = BASE_URL; // プロキシのルートを使用
+const API_BASE = BASE_URL; 
 const CDN_BASE = BASE_URL;
 
 let currentAccount = null;
@@ -319,7 +319,6 @@ let messageStore = {};
 let editedMessages = {};
 let pollingInterval = null;
 
-// 設定
 const plugins = JSON.parse(localStorage.getItem('plugins')) || {
     showMeYourName: false,
     sendSeconds: false,
@@ -329,14 +328,12 @@ const plugins = JSON.parse(localStorage.getItem('plugins')) || {
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
-    // テーマ設定
     if (localStorage.theme === 'dark' || (!localStorage.theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
         document.documentElement.classList.add('dark');
     } else {
         document.documentElement.classList.remove('dark');
     }
 
-    // ボタンイベント登録
     const setClick = (id, fn) => { const el = document.getElementById(id); if(el) el.onclick = fn; };
 
     setClick('add-account-button', () => addAccount(document.getElementById('token-input').value));
@@ -350,11 +347,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     setClick('cancel-reply-btn', cancelReply);
     setClick('back-to-channels-btn', showSidebarView);
 
-    // ファイル入力
     const fileInput = document.getElementById('file-input');
     if(fileInput) fileInput.onchange = (e) => { if (e.target.files.length > 0) handleFiles(e.target.files); };
 
-    // メッセージ入力欄
     const input = document.getElementById('message-input');
     if(input) {
         input.oninput = handleInput;
@@ -378,7 +373,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
     }
 
-    // アカウントスイッチャー
     const userInfoPanel = document.getElementById('user-info-panel');
     if(userInfoPanel) userInfoPanel.onclick = (e) => {
         e.stopPropagation();
@@ -390,10 +384,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('status-picker')?.classList.add('hidden');
     });
 
-    // スクロール
     document.getElementById('message-container')?.addEventListener('scroll', loadMoreMessages);
 
-    // 初期化
     const accounts = getAccounts();
     const activeId = getActiveAccountId();
     if (accounts.length > 0 && activeId) {
@@ -403,7 +395,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-// --- ユーティリティ ---
 const getAccounts = () => JSON.parse(localStorage.getItem('accounts')) || [];
 const saveAccounts = a => localStorage.setItem('accounts', JSON.stringify(a));
 const getActiveAccountId = () => localStorage.getItem('activeAccountId');
@@ -419,7 +410,6 @@ function toggleTheme() {
     }
 }
 
-// --- API通信 ---
 async function apiRequest(token, path, method = 'GET', body = null, isFormData = false) {
     const opts = {
         method,
@@ -447,7 +437,6 @@ async function apiRequest(token, path, method = 'GET', body = null, isFormData =
     }
 }
 
-// --- アカウント ---
 async function addAccount(token) {
     const spinner = document.getElementById('login-spinner');
     const errEl = document.getElementById('login-error');
@@ -688,7 +677,7 @@ function createChannelItem(c) {
     return div;
 }
 
-// 修正：メッセージ送信ロジック（常にpayload_jsonを使用）
+// 修正：メッセージ送信ロジック（シンプルcontent優先）
 async function sendMessage() {
     if (!currentChannel) return;
     const input = document.getElementById('message-input');
@@ -696,36 +685,35 @@ async function sendMessage() {
     
     if (!content && attachedFiles.length === 0) return;
     
-    // UIリセット
     input.value = '';
     const filesToSend = [...attachedFiles];
     attachedFiles = [];
     renderAttachmentList();
+    
     const currentReply = replyingTo;
     cancelReply();
 
-    // FormData作成
     const body = new FormData();
     
-    // ペイロード構築
-    const payload = { content: content };
-    if (currentReply) {
-        payload.message_reference = { message_id: currentReply.messageId };
+    // 50006エラー対策：payload_jsonを使わず、直接contentフィールドを使う（リプライがない場合）
+    if (!currentReply) {
+        body.append('content', content);
+    } else {
+        // リプライがある場合は構造が必要なのでpayload_jsonを使う
+        body.append('payload_json', JSON.stringify({
+            content: content,
+            message_reference: { message_id: currentReply.messageId }
+        }));
     }
     
-    // 画像送信が成功しているため、テキストのみでもこの形式（payload_json）に統一する
-    // contentフィールドを別にするのではなく、payload_jsonの中に全て入れる
-    body.append('payload_json', JSON.stringify(payload));
-    
-    // ファイル追加
     filesToSend.forEach((f, i) => body.append(`files[${i}]`, f));
 
-    // 送信
+    // 全てFormDataとして送信
     const res = await apiRequest(currentAccount.token, `/channels/${currentChannel.id}/messages`, 'POST', body, true);
     
     if (res.error) {
-        alert('送信エラー: ' + (res.error.message || '不明なエラー'));
-        input.value = content; // 失敗時は戻す
+        alert('送信エラー: ' + (res.error.message || JSON.stringify(res.error)));
+        input.value = content;
     } else {
         setTimeout(startPolling, 200);
     }
@@ -834,7 +822,7 @@ function createMessageElement(m, isGrouped) {
             <button class="${btnClass}" onclick="startEdit('${m.id}')">
                 <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
             </button>
-            <button class="${btnClass} text-red-500 hover:text-red-600" onclick="deleteMessage('${m.id}')">
+            <button class="${btnClass}" text-red-500 hover:text-red-600" onclick="deleteMessage('${m.id}')">
                 <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
             </button>
         `;
