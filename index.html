@@ -301,7 +301,7 @@
         </div>
 <script>
 const BASE_URL = 'https://yakisoba.cloudfree.jp/avoidcord';
-const API_BASE = BASE_URL; // プロキシのルートURL
+const API_BASE = BASE_URL; 
 const CDN_BASE = BASE_URL;
 
 let currentAccount = null;
@@ -334,7 +334,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.documentElement.classList.remove('dark');
     }
 
-    // イベント設定
     const setClick = (id, fn) => { const el = document.getElementById(id); if(el) el.onclick = fn; };
 
     setClick('add-account-button', () => addAccount(document.getElementById('token-input').value));
@@ -411,7 +410,6 @@ function toggleTheme() {
     }
 }
 
-// ノンス生成（公式クライアント同様）
 function generateNonce() {
     return (BigInt(Date.now() - 1420070400000) * 4194304n).toString();
 }
@@ -421,36 +419,17 @@ async function apiRequest(token, path, method = 'GET', body = null, isFormData =
         method,
         headers: {
             'Authorization': token,
-            // X-Super-Properties は公式クライアントのものを模倣
-            'X-Super-Properties': btoa(JSON.stringify({
-                os: "Windows",
-                browser: "Chrome",
-                device: "",
-                system_locale: "ja",
-                browser_user_agent: navigator.userAgent,
-                browser_version: "120.0.0.0",
-                os_version: "10",
-                referrer: "",
-                referring_domain: "",
-                referrer_current: "",
-                referring_domain_current: "",
-                release_channel: "stable",
-                client_build_number: 262355,
-                client_event_source: null
-            }))
+            'X-Super-Properties': btoa(JSON.stringify({ os: "Windows", browser: "Chrome", device: "", system_locale: "ja", client_build_number: 262355 }))
         }
     };
-    
     if (body) {
         if (isFormData) {
             opts.body = body;
-            // FormDataの場合はContent-Typeを自動設定させる
         } else {
             opts.body = JSON.stringify(body);
             opts.headers['Content-Type'] = 'application/json';
         }
     }
-    
     try {
         const r = await fetch(`${API_BASE}${path}`, opts);
         if (r.status === 401) return { error: { message: "Unauthorized" }, status: 401 };
@@ -702,7 +681,7 @@ function createChannelItem(c) {
     return div;
 }
 
-// 修正：公式クライアントと同じ分岐ロジック（JSON or FormData）
+// メッセージ送信ロジック
 async function sendMessage() {
     if (!currentChannel) return;
     const input = document.getElementById('message-input');
@@ -717,11 +696,10 @@ async function sendMessage() {
     const currentReply = replyingTo;
     cancelReply();
 
-    // 共通ペイロード
     const payload = {
         content: content,
         tts: false,
-        nonce: generateNonce(), // nonceを追加
+        nonce: generateNonce(),
         flags: 0
     };
     
@@ -887,6 +865,8 @@ function createMessageElement(m, isGrouped) {
                 </div>
                 <div class="message-body text-gray-800 dark:text-gray-300 whitespace-pre-wrap leading-relaxed break-words">${parseMarkdown(m.content)}</div>
                 ${renderAttachments(m.attachments)}
+                ${renderEmbeds(m.embeds)}
+                ${renderComponents(m.components)}
             </div>
         `;
     } else {
@@ -896,6 +876,8 @@ function createMessageElement(m, isGrouped) {
             <div class="flex-1 min-w-0">
                  <div class="message-body text-gray-800 dark:text-gray-300 whitespace-pre-wrap leading-relaxed break-words">${parseMarkdown(m.content)}</div>
                  ${renderAttachments(m.attachments)}
+                 ${renderEmbeds(m.embeds)}
+                 ${renderComponents(m.components)}
             </div>
         `;
     }
@@ -903,6 +885,119 @@ function createMessageElement(m, isGrouped) {
     if(bodyEl) bodyEl.dataset.original = m.content;
     el.appendChild(contentWrapper);
     return el;
+}
+
+// 修正：ボタン（Components）レンダリング追加
+function renderComponents(components) {
+    if (!components || components.length === 0) return '';
+    
+    return components.map(row => {
+        if (row.type !== 1) return ''; // Action Rowのみ
+        
+        const btns = row.components.map(c => {
+            if (c.type !== 2) return ''; // ボタンのみ対応
+            
+            // スタイル定義
+            let bgClass = "bg-[#4f545c] hover:bg-[#393c43]"; // Default/Secondary/Link
+            if (c.style === 1) bgClass = "bg-[#5865F2] hover:bg-[#4752C4]"; // Primary
+            else if (c.style === 3) bgClass = "bg-[#2d7d46] hover:bg-[#215b32]"; // Success
+            else if (c.style === 4) bgClass = "bg-[#ed4245] hover:bg-[#c03537]"; // Danger
+            
+            let emoji = '';
+            if (c.emoji) {
+                if (c.emoji.id) {
+                    emoji = `<img src="${CDN_BASE}/emojis/${c.emoji.id}.png" class="w-4 h-4 object-contain">`;
+                } else {
+                    emoji = `<span class="text-sm">${c.emoji.name}</span>`;
+                }
+            }
+            
+            const label = c.label ? `<span class="font-medium">${c.label}</span>` : '';
+            const content = `<div class="flex items-center gap-1.5">${emoji}${label}</div>`;
+            
+            if (c.style === 5 && c.url) {
+                // リンクボタン（クリック可能）
+                return `<a href="${c.url}" target="_blank" class="${bgClass} text-white px-4 py-2 rounded-[3px] text-sm transition-colors inline-block no-underline h-8 box-border flex items-center">${content}</a>`;
+            } else {
+                // インタラクションボタン（Lite版では無効化）
+                return `<button disabled class="${bgClass} text-white px-4 py-2 rounded-[3px] text-sm transition-colors opacity-50 cursor-not-allowed h-8 box-border">${content}</button>`;
+            }
+        }).join('');
+        
+        return `<div class="flex flex-wrap gap-2 mt-2">${btns}</div>`;
+    }).join('');
+}
+
+function renderEmbeds(embeds) {
+    if (!embeds || embeds.length === 0) return '';
+    
+    return embeds.map(embed => {
+        const colorStyle = embed.color ? `border-left-color: #${embed.color.toString(16).padStart(6, '0')};` : 'border-left-color: #202225;';
+        const proxyUrl = (url) => url ? url.replace(/^https?:\/\/(cdn\.discordapp\.com|media\.discordapp\.net)/, CDN_BASE) : '';
+
+        let html = `<div class="mt-2 border-l-4 rounded bg-gray-50 dark:bg-[#2f3136] p-3 max-w-xl" style="${colorStyle}">`;
+
+        if (embed.provider) {
+            html += `<div class="text-xs text-gray-500 mb-1">${embed.provider.name}</div>`;
+        }
+
+        if (embed.author) {
+            html += `<div class="flex items-center mb-1 gap-2">`;
+            if (embed.author.icon_url) {
+                html += `<img src="${proxyUrl(embed.author.icon_url)}" class="w-5 h-5 rounded-full">`;
+            }
+            html += `<span class="text-sm font-bold text-gray-700 dark:text-gray-300">${embed.author.name}</span></div>`;
+        }
+
+        if (embed.title) {
+            if (embed.url) {
+                html += `<a href="${embed.url}" target="_blank" class="block text-blue-500 font-bold hover:underline mb-1">${embed.title}</a>`;
+            } else {
+                html += `<div class="text-blue-500 font-bold mb-1">${embed.title}</div>`;
+            }
+        }
+
+        if (embed.description) {
+            html += `<div class="text-sm text-gray-600 dark:text-gray-400 whitespace-pre-wrap mb-2">${parseMarkdown(embed.description)}</div>`;
+        }
+
+        if (embed.fields && embed.fields.length > 0) {
+            html += `<div class="grid grid-cols-12 gap-2 mb-2">`;
+            embed.fields.forEach(field => {
+                const colSpan = field.inline ? 'col-span-4' : 'col-span-12';
+                html += `<div class="${colSpan}">
+                    <div class="text-xs font-bold text-gray-500 mb-0.5">${field.name}</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-300 whitespace-pre-wrap">${parseMarkdown(field.value)}</div>
+                </div>`;
+            });
+            html += `</div>`;
+        }
+
+        if (embed.image) {
+            html += `<a href="${embed.image.url}" target="_blank" class="block mt-2"><img src="${proxyUrl(embed.image.url)}" class="max-w-full rounded max-h-80"></a>`;
+        }
+        
+        if (embed.thumbnail && !embed.image) {
+             html += `<a href="${embed.thumbnail.url}" target="_blank" class="block mt-2"><img src="${proxyUrl(embed.thumbnail.url)}" class="max-w-[80px] rounded"></a>`;
+        }
+
+        if (embed.footer) {
+            html += `<div class="flex items-center gap-2 mt-2 pt-2 border-t border-gray-200 dark:border-gray-700 text-xs text-gray-500">`;
+            if (embed.footer.icon_url) {
+                html += `<img src="${proxyUrl(embed.footer.icon_url)}" class="w-4 h-4 rounded-full">`;
+            }
+            html += `<span>${embed.footer.text}</span>`;
+            if (embed.timestamp) {
+                html += `<span class="before:content-['•'] before:mx-1">${new Date(embed.timestamp).toLocaleString()}</span>`;
+            }
+            html += `</div>`;
+        } else if (embed.timestamp) {
+             html += `<div class="text-xs text-gray-500 mt-2">${new Date(embed.timestamp).toLocaleString()}</div>`;
+        }
+
+        html += `</div>`;
+        return html;
+    }).join('');
 }
 
 function renderAttachments(atts) {
