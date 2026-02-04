@@ -332,75 +332,101 @@ document.addEventListener('DOMContentLoaded', async () => {
     // テーマ初期化
     if (localStorage.theme === 'dark' || (!localStorage.theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
         document.documentElement.classList.add('dark');
+    } else {
+        document.documentElement.classList.remove('dark');
     }
 
     // イベントリスナーの登録
-    document.getElementById('add-account-button').onclick = () => addAccount(document.getElementById('token-input').value);
+    const addAccBtn = document.getElementById('add-account-button');
+    if(addAccBtn) addAccBtn.onclick = () => addAccount(document.getElementById('token-input').value);
     
-    // キャンセルボタン（もしアカウントがあればメイン画面へ戻る）
-    document.getElementById('cancel-add-account-button').onclick = () => {
+    const cancelAccBtn = document.getElementById('cancel-add-account-button');
+    if(cancelAccBtn) cancelAccBtn.onclick = () => {
         if(getAccounts().length > 0) {
             updateView('app');
         }
     };
 
-    document.getElementById('dm-icon').onclick = loadDms;
-    document.getElementById('theme-toggle-btn').onclick = toggleTheme;
-    document.getElementById('add-account-switcher-btn').onclick = () => {
+    const dmIcon = document.getElementById('dm-icon');
+    if(dmIcon) dmIcon.onclick = loadDms;
+
+    const themeBtn = document.getElementById('theme-toggle-btn');
+    if(themeBtn) themeBtn.onclick = toggleTheme;
+
+    const addSwitcherBtn = document.getElementById('add-account-switcher-btn');
+    if(addSwitcherBtn) addSwitcherBtn.onclick = () => {
         showLoginScreen();
     };
 
     // メッセージ送信関連
-    document.getElementById('send-button').onclick = sendMessage;
-    document.getElementById('attach-button').onclick = () => document.getElementById('file-input').click();
-    document.getElementById('file-input').onchange = (e) => {
+    const sendBtn = document.getElementById('send-button');
+    if(sendBtn) sendBtn.onclick = sendMessage;
+
+    const attachBtn = document.getElementById('attach-button');
+    if(attachBtn) attachBtn.onclick = () => document.getElementById('file-input').click();
+
+    const fileInput = document.getElementById('file-input');
+    if(fileInput) fileInput.onchange = (e) => {
         if (e.target.files.length > 0) handleFiles(e.target.files);
     };
-    document.getElementById('cancel-attachment-btn').onclick = () => {
+
+    const cancelAttBtn = document.getElementById('cancel-attachment-btn');
+    if(cancelAttBtn) cancelAttBtn.onclick = () => {
         attachedFiles = [];
         renderAttachmentList();
     };
-    document.getElementById('cancel-reply-btn').onclick = cancelReply;
-    document.getElementById('back-to-channels-btn').onclick = showSidebarView;
+
+    const cancelReplyBtn = document.getElementById('cancel-reply-btn');
+    if(cancelReplyBtn) cancelReplyBtn.onclick = cancelReply;
+
+    const backBtn = document.getElementById('back-to-channels-btn');
+    if(backBtn) backBtn.onclick = showSidebarView;
 
     // 入力欄の制御
     const input = document.getElementById('message-input');
-    input.oninput = handleInput;
-    input.onkeypress = (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            sendMessage();
-        }
-    };
-    // 矢印キーで編集
-    input.onkeydown = (e) => {
-        if (e.key === 'ArrowUp' && input.value === '') {
-            e.preventDefault();
-            const els = Array.from(document.querySelectorAll('.message-group')).reverse();
-            for (let el of els) {
-                if (el.dataset.authorId === currentAccount.id && !el.classList.contains('message-failed')) {
-                    startEdit(el.id.replace('message-', ''));
-                    break;
+    if(input) {
+        input.oninput = handleInput;
+        input.onkeypress = (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        };
+        // 矢印キーで編集
+        input.onkeydown = (e) => {
+            if (e.key === 'ArrowUp' && input.value === '') {
+                e.preventDefault();
+                const els = Array.from(document.querySelectorAll('.message-group')).reverse();
+                for (let el of els) {
+                    if (el.dataset.authorId === currentAccount.id && !el.classList.contains('message-failed')) {
+                        startEdit(el.id.replace('message-', ''));
+                        break;
+                    }
                 }
             }
-        }
-    };
+        };
+    }
 
     // ユーザーパネルクリックでアカウントスイッチャー表示
-    document.getElementById('user-info-panel').onclick = (e) => {
+    const userInfoPanel = document.getElementById('user-info-panel');
+    if(userInfoPanel) userInfoPanel.onclick = (e) => {
         e.stopPropagation();
         const switcher = document.getElementById('account-switcher');
-        switcher.classList.toggle('hidden');
+        if(switcher) switcher.classList.toggle('hidden');
     };
 
     // 外側クリックで閉じる処理
     window.addEventListener('click', () => {
-        document.getElementById('account-switcher').classList.add('hidden');
-        document.getElementById('status-picker').classList.add('hidden');
+        const switcher = document.getElementById('account-switcher');
+        if(switcher) switcher.classList.add('hidden');
+        
+        const statusPicker = document.getElementById('status-picker');
+        if(statusPicker) statusPicker.classList.add('hidden');
     });
 
     // スクロール読み込み
-    document.getElementById('message-container').addEventListener('scroll', loadMoreMessages);
+    const msgContainer = document.getElementById('message-container');
+    if(msgContainer) msgContainer.addEventListener('scroll', loadMoreMessages);
 
     // アカウント初期化
     const accounts = getAccounts();
@@ -466,14 +492,14 @@ async function addAccount(token) {
     token = token.trim().replace(/^"|"$/g, '');
     if (!token) return;
 
-    spinner.classList.remove('hidden');
-    btnText.innerText = "";
-    errEl.innerText = "";
+    if(spinner) spinner.classList.remove('hidden');
+    if(btnText) btnText.innerText = "";
+    if(errEl) errEl.innerText = "";
 
     const result = await apiRequest(token, '/users/@me');
     
-    spinner.classList.add('hidden');
-    btnText.innerText = "アカウントを追加";
+    if(spinner) spinner.classList.add('hidden');
+    if(btnText) btnText.innerText = "アカウントを追加";
 
     if (result.data && result.data.id) {
         let a = getAccounts();
@@ -486,7 +512,7 @@ async function addAccount(token) {
         saveAccounts(a);
         switchAccount(result.data.id);
     } else {
-        errEl.innerText = `エラー: ${result.error?.message || '無効なトークン'}`;
+        if(errEl) errEl.innerText = `エラー: ${result.error?.message || '無効なトークン'}`;
     }
 }
 
@@ -505,19 +531,28 @@ function switchAccount(id) {
     loadGuilds();
 }
 
+// 修正箇所：HTML構造を動的に生成するように変更
 function renderCurrentUserPanel() {
     if (!currentAccount) return;
-    document.getElementById('current-user-name').innerText = currentAccount.global_name || currentAccount.username;
-    document.getElementById('current-user-subtext').innerText = `@${currentAccount.username}`;
-    
+    const panel = document.getElementById('user-info-panel');
+    if(!panel) return;
+
+    const name = currentAccount.global_name || currentAccount.username;
+    const username = currentAccount.username;
     const avatar = currentAccount.avatar 
         ? `${CDN_BASE}/avatars/${currentAccount.id}/${currentAccount.avatar}.png?size=64` 
         : `${CDN_BASE}/embed/avatars/${currentAccount.discriminator % 5}.png`;
     
-    // User Panel Avatar
-    document.getElementById('current-user-avatar-container').innerHTML = `<img src="${avatar}" class="w-full h-full rounded-full">`;
-    
-    // Profile Modal Avatar (for completeness)
+    // パネルの中身を直接書き換える（元のHTMLに中身が無いため）
+    panel.innerHTML = `
+        <img src="${avatar}" class="w-8 h-8 rounded-full bg-gray-300 object-cover">
+        <div class="flex-1 min-w-0">
+            <div class="font-bold text-sm truncate">${name}</div>
+            <div class="text-xs text-[var(--text-secondary)] truncate">@${username}</div>
+        </div>
+    `;
+
+    // プロフィールモーダル用
     const modalAvatar = document.getElementById('profile-avatar');
     if(modalAvatar) modalAvatar.src = avatar;
 
@@ -526,6 +561,8 @@ function renderCurrentUserPanel() {
 
 function renderAccountSwitcher() {
     const list = document.getElementById('account-list');
+    if(!list) return;
+    
     const accounts = getAccounts();
     const activeId = getActiveAccountId();
 
@@ -537,7 +574,7 @@ function renderAccountSwitcher() {
         
         return `
         <div class="flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600" onclick="switchAccount('${acc.id}')">
-            <img src="${av}" class="w-8 h-8 rounded-full">
+            <img src="${av}" class="w-8 h-8 rounded-full object-cover">
             <div class="flex-1 min-w-0">
                 <div class="font-bold text-sm truncate">${acc.global_name || acc.username}</div>
             </div>
@@ -558,8 +595,10 @@ function updateView(viewName) {
         // キャンセルボタンを表示するかどうか
         const hasAcc = getAccounts().length > 0;
         const cancelBtn = document.getElementById('cancel-add-account-button');
-        if(hasAcc) cancelBtn.classList.remove('hidden');
-        else cancelBtn.classList.add('hidden');
+        if(cancelBtn) {
+            if(hasAcc) cancelBtn.classList.remove('hidden');
+            else cancelBtn.classList.add('hidden');
+        }
     } else {
         auth.classList.add('hidden');
         auth.classList.remove('flex');
@@ -571,8 +610,10 @@ function updateView(viewName) {
 
 function showLoginScreen() {
     updateView('auth');
-    document.getElementById('token-input').value = '';
-    document.getElementById('login-error').innerText = '';
+    const tokenInput = document.getElementById('token-input');
+    if(tokenInput) tokenInput.value = '';
+    const errEl = document.getElementById('login-error');
+    if(errEl) errEl.innerText = '';
 }
 
 function cleanupState() {
@@ -583,10 +624,14 @@ function cleanupState() {
     editedMessages = {};
     guildDataMap.clear();
     
-    document.getElementById('guild-list').innerHTML = '';
-    document.getElementById('channel-list').innerHTML = '';
-    document.getElementById('message-container').innerHTML = '';
-    document.getElementById('guild-name').innerText = '';
+    const gList = document.getElementById('guild-list');
+    if(gList) gList.innerHTML = '';
+    const cList = document.getElementById('channel-list');
+    if(cList) cList.innerHTML = '';
+    const mCont = document.getElementById('message-container');
+    if(mCont) mCont.innerHTML = '';
+    const gName = document.getElementById('guild-name');
+    if(gName) gName.innerText = '';
     
     renderAttachmentList();
     cancelReply();
@@ -599,6 +644,8 @@ async function loadGuilds() {
     if (res.error) return;
 
     const list = document.getElementById('guild-list');
+    if(!list) return;
+
     list.innerHTML = '';
     guildDataMap.clear();
     
@@ -626,13 +673,17 @@ function createGuildIcon(g) {
 
 async function loadDms() {
     document.querySelectorAll('.server-icon.active').forEach(e => e.classList.remove('active'));
-    document.getElementById('dm-icon').classList.add('active');
-    document.getElementById('guild-name').innerText = 'ダイレクトメッセージ';
+    const dmIcon = document.getElementById('dm-icon');
+    if(dmIcon) dmIcon.classList.add('active');
+    
+    const gName = document.getElementById('guild-name');
+    if(gName) gName.innerText = 'ダイレクトメッセージ';
     
     const res = await apiRequest(currentAccount.token, '/users/@me/channels');
     if (res.error) return;
     
     const list = document.getElementById('channel-list');
+    if(!list) return;
     list.innerHTML = '';
     
     const dms = res.data.sort((a,b) => (b.last_message_id||0) - (a.last_message_id||0));
@@ -661,19 +712,21 @@ async function loadChannels(guild, element) {
     document.querySelectorAll('.server-icon.active').forEach(e => e.classList.remove('active'));
     if (element) element.classList.add('active');
     
-    document.getElementById('guild-name').innerText = guild.name;
+    const gName = document.getElementById('guild-name');
+    if(gName) gName.innerText = guild.name;
+
     const res = await apiRequest(currentAccount.token, `/guilds/${guild.id}/channels`);
     if (res.error) return;
     
     const list = document.getElementById('channel-list');
+    if(!list) return;
     list.innerHTML = '';
     
     const channels = res.data;
     // カテゴリとチャンネルの整理
     const categories = channels.filter(c => c.type === 4).sort((a,b) => a.position - b.position);
     const textChannels = channels.filter(c => c.type === 0 || c.type === 5).sort((a,b) => a.position - b.position);
-    const others = channels.filter(c => c.type !== 4 && c.type !== 0 && c.type !== 5); // ボイスなどは今回はリストアップのみ
-
+    
     // カテゴリなし
     textChannels.filter(c => !c.parent_id).forEach(c => list.appendChild(createChannelItem(c)));
 
@@ -736,10 +789,14 @@ async function selectChannel(channel) {
     // ヘッダー更新
     let name = channel.name;
     if (!name && channel.recipients) name = channel.recipients[0].global_name || channel.recipients[0].username;
-    document.getElementById('channel-name-text').innerHTML = `<span class="text-gray-400 mr-1">#</span>${name || 'DM'}`;
+    
+    const cName = document.getElementById('channel-name-text');
+    if(cName) cName.innerHTML = `<span class="text-gray-400 mr-1">#</span>${name || 'DM'}`;
     
     // メッセージ取得
     const container = document.getElementById('message-container');
+    if(!container) return;
+    
     container.innerHTML = '<div class="flex justify-center items-center h-full"><div class="loader border-t-blue-500 rounded-full border-4 border-gray-200 h-8 w-8"></div></div>';
     
     const res = await apiRequest(currentAccount.token, `/channels/${channel.id}/messages?limit=50`);
@@ -770,6 +827,8 @@ function startPolling() {
     pollingInterval = setInterval(async () => {
         if (!currentChannel) return;
         const container = document.getElementById('message-container');
+        if(!container) return;
+
         const lastMsg = container.lastElementChild;
         let afterId = lastMsg ? lastMsg.id.replace('message-', '') : null;
         if (!afterId && oldestMessageId) afterId = oldestMessageId; // フォールバック
@@ -877,7 +936,7 @@ function createMessageElement(m, isGrouped) {
             
         contentWrapper.innerHTML = `
             <div class="flex-shrink-0 mr-4 mt-0.5 cursor-pointer" onclick="openProfileModal('${m.author.id}')">
-                <img src="${avUrl}" class="w-10 h-10 rounded-full hover:drop-shadow-md transition">
+                <img src="${avUrl}" class="w-10 h-10 rounded-full hover:drop-shadow-md transition object-cover">
             </div>
             <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2 mb-0.5">
@@ -951,13 +1010,17 @@ function renderAttachmentList() {
     const previewBar = document.getElementById('attachment-preview-bar');
     const nameEl = document.getElementById('attachment-preview-name');
     
-    if (attachedFiles.length > 0) {
-        previewBar.classList.remove('hidden');
-        previewBar.classList.add('flex');
-        nameEl.innerText = `${attachedFiles.length} file(s): ${attachedFiles.map(f=>f.name).join(', ')}`;
-    } else {
-        previewBar.classList.add('hidden');
-        previewBar.classList.remove('flex');
+    // ユーザーHTMLに添付ファイルプレビュー用のバーがなかった場合のフォールバック（チャットエリア下部など）
+    // 提供HTMLには `attachment-preview-bar` がある
+    if(previewBar && nameEl) {
+        if (attachedFiles.length > 0) {
+            previewBar.classList.remove('hidden');
+            previewBar.classList.add('flex');
+            nameEl.innerText = `${attachedFiles.length} file(s): ${attachedFiles.map(f=>f.name).join(', ')}`;
+        } else {
+            previewBar.classList.add('hidden');
+            previewBar.classList.remove('flex');
+        }
     }
 }
 
@@ -992,6 +1055,7 @@ async function sendMessage() {
 
 function startEdit(msgId) {
     const el = document.getElementById(`message-${msgId}`);
+    if(!el) return;
     const body = el.querySelector('.message-body');
     const original = body.dataset.original;
     
@@ -1027,9 +1091,13 @@ async function deleteMessage(msgId) {
 function startReply(m) {
     replyingTo = { messageId: m.id };
     const bar = document.getElementById('reply-bar');
-    bar.classList.remove('hidden');
-    bar.classList.add('flex');
-    document.getElementById('reply-username').innerText = m.author.global_name || m.author.username;
+    if(bar) {
+        bar.classList.remove('hidden');
+        bar.classList.add('flex');
+    }
+    const rUser = document.getElementById('reply-username');
+    if(rUser) rUser.innerText = m.author.global_name || m.author.username;
+    
     document.getElementById('message-input').focus();
 }
 
@@ -1047,12 +1115,14 @@ function handleInput() {
     const counter = document.getElementById('char-counter');
     const len = input.value.length;
     
-    if (len > 0) {
-        counter.classList.remove('opacity-0');
-        counter.innerText = `${len}/${maxCharCount}`;
-        counter.style.color = len > maxCharCount ? 'red' : '';
-    } else {
-        counter.classList.add('opacity-0');
+    if(counter) {
+        if (len > 0) {
+            counter.classList.remove('opacity-0');
+            counter.innerText = `${len}/${maxCharCount}`;
+            counter.style.color = len > maxCharCount ? 'red' : '';
+        } else {
+            counter.classList.add('opacity-0');
+        }
     }
     
     // 高さ自動調整
@@ -1063,7 +1133,8 @@ function handleInput() {
 function handleResize() {
     if (window.innerWidth >= 768) {
         showChatView();
-        document.getElementById('sidebar-view').classList.remove('hidden');
+        const sidebar = document.getElementById('sidebar-view');
+        if(sidebar) sidebar.classList.remove('hidden');
     } else if (currentChannel) {
         showChatView();
     } else {
@@ -1072,20 +1143,25 @@ function handleResize() {
 }
 
 function showSidebarView() {
-    document.getElementById('sidebar-view').classList.remove('hidden');
-    document.getElementById('chat-section').classList.add('hidden');
+    const sidebar = document.getElementById('sidebar-view');
+    const chat = document.getElementById('chat-section');
+    if(sidebar) sidebar.classList.remove('hidden');
+    if(chat) chat.classList.add('hidden');
 }
 
 function showChatView() {
-    document.getElementById('sidebar-view').classList.add('hidden');
-    document.getElementById('chat-section').classList.remove('hidden');
+    const sidebar = document.getElementById('sidebar-view');
+    const chat = document.getElementById('chat-section');
+    if(sidebar) sidebar.classList.add('hidden');
+    if(chat) chat.classList.remove('hidden');
 }
 
-// Global scope functions for inline onclick handlers in the provided HTML
+// Global scope functions
 window.updateStatus = (status) => {
-    // API does not support custom status easily without WS, ignoring for Lite version
     alert(`Status set to ${status} (Visual only in Lite)`);
-    document.getElementById('status-picker').classList.add('hidden');
+    const picker = document.getElementById('status-picker');
+    if(picker) picker.classList.add('hidden');
+    
     const dot = document.getElementById('profile-status-dot');
     if(dot) {
         dot.className = `status-dot ${status === 'invisible' ? 'offline' : status}`;
@@ -1093,12 +1169,17 @@ window.updateStatus = (status) => {
 };
 
 window.closeProfileModal = () => {
-    document.getElementById('profile-modal').classList.add('hidden');
-    document.getElementById('profile-modal').classList.remove('flex');
+    const modal = document.getElementById('profile-modal');
+    if(modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
 };
 
 window.openProfileModal = async (userId) => {
     const modal = document.getElementById('profile-modal');
+    if(!modal) return;
+    
     modal.classList.remove('hidden');
     modal.classList.add('flex');
     
@@ -1106,13 +1187,17 @@ window.openProfileModal = async (userId) => {
     const res = await apiRequest(currentAccount.token, `/users/${userId}`);
     if(res.data) {
         const u = res.data;
-        document.getElementById('profile-name').innerText = u.global_name || u.username;
-        document.getElementById('profile-username').innerText = u.username;
+        const pName = document.getElementById('profile-name');
+        if(pName) pName.innerText = u.global_name || u.username;
+        
+        const pUser = document.getElementById('profile-username');
+        if(pUser) pUser.innerText = u.username;
+        
         const av = u.avatar ? `${CDN_BASE}/avatars/${u.id}/${u.avatar}.png?size=128` : `${CDN_BASE}/embed/avatars/${u.discriminator%5}.png`;
-        document.getElementById('profile-avatar').src = av;
+        const pAv = document.getElementById('profile-avatar');
+        if(pAv) pAv.src = av;
     }
 };
 </script>
-
     </body>
 </html>
